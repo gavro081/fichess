@@ -108,7 +108,11 @@ class Game:
                             self.dragging = False
                             self.dragged_piece = None
                             continue
-                        move = chess.Move(from_square, to_square)
+                        piece = self.board.piece_at(from_square)
+                        if piece and piece.piece_type == chess.PAWN and (chess.square_rank(to_square) in [0, 7]):
+                            move = chess.Move(from_square, to_square, promotion=chess.QUEEN)
+                        else:
+                            move = chess.Move(from_square, to_square)
                         if move in self.board.legal_moves:
                             self.board.push(move)
                     self.dragging = False
