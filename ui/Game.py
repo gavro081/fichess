@@ -1,11 +1,51 @@
 import pygame
 import chess
-from chess import STARTING_BOARD_FEN
-from fichess.utils import get_square_under_mouse, load_piece_images
-from fichess.consts import *
+import os
+from engine.Agent import Agent
+
+WHITE = (255,255,255)
+BROWN = (92, 73, 53)
+BLACK = (0,0,0)
+
+WINDOW_SIZE = 800
+PADDING = 40
+BOARD_SIZE = WINDOW_SIZE - 2 * PADDING
+SQUARE_SIZE = BOARD_SIZE // 8
+
+MIDDLE_GAME_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+ENDGAME_FEN = "8/5pk1/6p1/7p/7P/5K2/6P1/6R1 w - - 0 45"
+
+piece_files = {
+    'K': 'king.png',
+    'Q': 'queen.png',
+    'R': 'rook.png',
+    'B': 'bishop.png',
+    'N': 'knight.png',
+    'P': 'pawn.png'
+}
+
+def load_piece_images():
+    images = {}
+    for color, folder in [('w', 'white'), ('b', 'black')]:
+        for key, filename in piece_files.items():
+            path = os.path.join('assets', folder, filename)
+            image = pygame.image.load(path)
+            image = pygame.transform.smoothscale(image, (SQUARE_SIZE, SQUARE_SIZE))
+            key = key[0] if key != "knight" else "n"
+            if color == 'b': key = key.lower()
+            images[key] = image
+    return images
+
+def get_square_under_mouse(pos):
+    mx, my = pos
+    x = (mx - PADDING) // SQUARE_SIZE
+    y = (my - PADDING) // SQUARE_SIZE
+    if 0 <= x < 8 and 0 <= y < 8:
+        return y, x
+    return None, None
 
 class Game:
-    def __init__(self, fen = STARTING_BOARD_FEN):
+    def __init__(self, fen = chess.STARTING_BOARD_FEN):
         pygame.init()
         self.font = pygame.font.SysFont(None, 28)
         self.board = chess.Board(fen)
@@ -16,7 +56,6 @@ class Game:
         self.dragged_pos = (0, 0)
         self.mouse_offset = (0, 0)
         self.screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
-        # self.legal_moves =
         pygame.display.set_caption("Chess Board")
 
     def is_player_piece(self, square):
@@ -55,29 +94,44 @@ class Game:
         if self.dragging and self.dragged_piece:
             self.screen.blit(self.images[self.dragged_piece], self.dragged_pos)
 
-    def start_game(self):
+    def print_text(self, text):
+        self.screen.fill((200, 200, 200))
+        self.render()
+        pygame.display.flip()
+        label = pygame.font.SysFont(None, 64).render(text, True, BLACK)
+        self.screen.blit(label, (WINDOW_SIZE // 2 - label.get_width() // 2, WINDOW_SIZE // 2 - label.get_height() // 2))
+        pygame.display.flip()
+        pygame.time.wait(2000)
+
+    def start_game(self, engine_color: chess.Color = chess.BLACK):
         running = True
+        agent = Agent(engine_color=engine_color)
+
         while running:
             if self.board.is_checkmate():
-                print("Checkmate!")
-                print("Result:", self.board.result())
                 text = f"{'White' if self.board.turn == chess.BLACK else 'Black'} wins!"
-                label = pygame.font.SysFont(None, 64).render(text, True, BLACK)
-                self.screen.blit(label, (WINDOW_SIZE // 2 - label.get_width() // 2, WINDOW_SIZE // 2 - label.get_height() // 2))
-                pygame.display.flip()
-                pygame.time.wait(2000)
-                running = False
+                self.print_text(text)
                 break
 
             if self.board.is_stalemate():
-                print("Stalemate!")
-                print("Result:", self.board.result())
+                text = "Stalemate!"
+                self.print_text(text)
                 break
 
             if self.board.is_game_over():
-                print("Game Over")
-                print("Result:", self.board.result())
+                text = "Game Over"
+                self.print_text(text)
                 break
+
+            if self.board.turn == engine_color:
+                # agent should always start as max
+                best_move = agent.alpha_beta(self.board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
+                if best_move:
+                    self.board.push(best_move)
+                    self.screen.fill((200, 200, 200))
+                    self.render()
+                    pygame.display.flip()
+                    continue
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -114,6 +168,7 @@ class Game:
                         else:
                             move = chess.Move(from_square, to_square)
                         if move in self.board.legal_moves:
+                            # print(self.board.fen())
                             self.board.push(move)
                     self.dragging = False
                     self.dragged_piece = None
