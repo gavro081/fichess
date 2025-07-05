@@ -11,6 +11,7 @@ piece_scores = {
 
 MATE_SCORE = 10000  # Score for a checkmate, used in evaluation
 
+# ref https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
 MG_TABLES = {
     chess.PAWN: [
         0, 0, 0, 0, 0, 0, 0, 0,
