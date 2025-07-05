@@ -95,6 +95,7 @@ class Game:
             self.screen.blit(self.images[self.dragged_piece], self.dragged_pos)
 
     def print_text(self, text):
+        # show the last move before showing the text
         self.screen.fill((200, 200, 200))
         self.render()
         pygame.display.flip()
@@ -106,7 +107,6 @@ class Game:
     def start_game(self, engine_color: chess.Color = chess.BLACK):
         running = True
         agent = Agent(engine_color=engine_color)
-
         while running:
             if self.board.is_checkmate():
                 text = f"{'White' if self.board.turn == chess.BLACK else 'Black'} wins!"

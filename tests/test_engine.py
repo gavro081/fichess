@@ -2,7 +2,7 @@ import unittest
 import chess
 from chess import STARTING_FEN
 
-from engine.Agent import Agent
+from engine.Agent import Agent, Eval
 
 class TestEngine(unittest.TestCase):
     def test_engine_1(self):
@@ -30,10 +30,18 @@ class TestEngine(unittest.TestCase):
         self.assertIsNotNone(move)
         board.push(move)
         board.push_uci("a2a1")
-        move = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
+        move = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
         self.assertIsNotNone(move)
         board.push(move)
         self.assertTrue(board.is_checkmate())
 
+class TestEval(unittest.TestCase):
+    def test_eval_board(self):
+        eval_black = Eval(engine_color=chess.BLACK)
+        eval_white = Eval(engine_color=chess.WHITE)
+        board = chess.Board(fen="N2K3N/8/8/4n3/2n5/8/8/3k4 w - - 0 1")
+        black_score = eval_black.evaluate_board(board)
+        white_score = eval_white.evaluate_board(board)
+        self.assertGreater(black_score, white_score)
 
 
