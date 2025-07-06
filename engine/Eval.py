@@ -11,8 +11,22 @@ class Eval:
         self.total_phase = consts.TOTAL_PHASE_WEIGHT
         self.piece_scores = consts.piece_scores
 
+    def check_center_control(self, board: chess.Board) -> int:
+        raise NotImplementedError
+
+    def legal_moves_count(self, board: chess.Board) -> int:
+        raise NotImplementedError
+
+    def check_piece_coordination(self, board: chess.Board) -> int:
+        # double rooks, queen and bishop battery, Knight outposts protected by pawns
+        raise NotImplementedError
+
+    def check_mobility(self, board: chess.Board) -> int:
+        # count legal moves per piece
+        raise NotImplementedError
 
     def check_pawn_structure(self, board: chess.Board, color: chess.Color) -> int:
+        # TODO: clean up
         score = 0
         # doubled pawns
         pawns = board.pieces(chess.PAWN, color)
@@ -85,14 +99,11 @@ class Eval:
 
         return score
 
-    def check_center_control(self, board: chess.Board) -> int:
-        raise NotImplementedError
-
     def _king_is_castled(self, board: chess.Board, color: chess.Color) -> bool:
         king_square = board.king(color)
         if not king_square:
             return False
-        if self.engine_color == chess.WHITE:
+        if color == chess.WHITE:
             if king_square == chess.G1 and (board.piece_at(chess.F1) == chess.Piece(chess.ROOK, chess.WHITE) or
                                             board.piece_at(chess.H1) == chess.Piece(chess.ROOK, chess.WHITE)):
                 return True
@@ -109,27 +120,17 @@ class Eval:
         return False
 
     def check_king_safety(self, board: chess.Board, color: chess.Color) -> int:
-        engine_ks_score = self._calculate_king_safety_for_color(board, self.engine_color)
-        opponent_ks_score = self._calculate_king_safety_for_color(board, not self.engine_color)
+        engine_ks_score = self._calculate_king_safety_for_color(board, color)
+        opp_ks_score = self._calculate_king_safety_for_color(board, not color)
 
         # a positive score means the evaluated color's king is safer than the opponent's
-        if color == self.engine_color:
-            return engine_ks_score - opponent_ks_score
-        else:
-            return opponent_ks_score - engine_ks_score
+        return engine_ks_score - opp_ks_score
 
     def _calculate_king_safety_for_color(self, board: chess.Board, color: chess.Color):
         if not board.has_castling_rights(color) and not self._king_is_castled(board, color):
-            return -40
+            # TODO: find ok weight
+            return -100
         return 0
-
-
-    def legal_moves_count(self, board: chess.Board) -> int:
-        raise NotImplementedError
-
-    def check_piece_coordination(self, board: chess.Board) -> int:
-        # double rooks, queen and bishop battery, Knight outposts protected by pawns
-        raise NotImplementedError
 
     def evaluate_development(self, board: chess.Board, color: chess.Color) -> int:
         score = 0
@@ -155,10 +156,6 @@ class Eval:
                 score += bonus
 
         return score
-
-    def check_mobility(self, board: chess.Board) -> int:
-        # count legal moves per piece
-        raise NotImplementedError
 
     def score_material(self, board: chess.Board, color: chess.Color) -> float:
         score = 0

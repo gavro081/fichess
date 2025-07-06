@@ -16,29 +16,6 @@ class TestEngine(unittest.TestCase):
         # self.assertIsNotNone(best_move)
         # self.assertTrue(best_move == chess.Move.from_uci("g7h6"))
 
-    def test_pawn_structure(self):
-        board = chess.Board(fen=STARTING_FEN)
-        ev_black = Eval()
-        ev_white = Eval()
-        score_black = ev_black.check_pawn_structure(board, chess.BLACK)
-        score_white = ev_white.check_pawn_structure(board, chess.WHITE)
-        print(score_white)
-        print(score_black)
-        self.assertEqual(score_black, -score_white)
-        self.assertEqual(score_black, 0)
-
-    def test_pawn_structure2(self):
-        board = chess.Board(fen="8/5k2/3p4/1P6/8/8/3P4/4K3 w - - 0 1")
-        ev_white = Eval()
-        score_white = ev_white.check_pawn_structure(board, chess.WHITE)
-        self.assertGreater(score_white, 0)
-
-    def test_pawn_structure3(self):
-        board = chess.Board(fen="8/5k2/3p4/8/3P4/3p4/8/4K3 w - - 0 1")
-        ev_white = Eval()
-        score_white = ev_white.check_pawn_structure(board, chess.WHITE)
-        self.assertLess(score_white, 0)
-
     def test_engine_m1(self):
         board = chess.Board(fen="3q2k1/8/8/8/8/1P6/P6r/K7 b - - 0 1")
         agent = Agent(engine_color=chess.BLACK)
@@ -81,4 +58,38 @@ class TestEval(unittest.TestCase):
         white_score = eval_white.evaluate_board(board, color=chess.WHITE)
         self.assertGreater(black_score, white_score)
 
+    def test_pawn_structure(self):
+        board = chess.Board(fen=STARTING_FEN)
+        ev_black = Eval()
+        ev_white = Eval()
+        score_black = ev_black.check_pawn_structure(board, chess.BLACK)
+        score_white = ev_white.check_pawn_structure(board, chess.WHITE)
+        print(score_white)
+        print(score_black)
+        self.assertEqual(score_black, -score_white)
+        self.assertEqual(score_black, 0)
 
+    def test_pawn_structure2(self):
+        board = chess.Board(fen="8/5k2/3p4/1P6/8/8/3P4/4K3 w - - 0 1")
+        ev_white = Eval()
+        score_white = ev_white.check_pawn_structure(board, chess.WHITE)
+        self.assertGreater(score_white, 0)
+
+    def test_pawn_structure3(self):
+        board = chess.Board(fen="8/5k2/3p4/8/3P4/3p4/8/4K3 w - - 0 1")
+        ev_white = Eval()
+        score_white = ev_white.check_pawn_structure(board, chess.WHITE)
+        self.assertLess(score_white, 0)
+
+    def test_king_safety_helper(self):
+        board = chess.Board(fen="rnbq1bnr/ppppkppp/8/4p3/8/2NP4/PPP1PPPP/R1BQKBNR b KQ - 0 1")
+        ev = Eval()
+        self.assertEqual(ev._calculate_king_safety_for_color(board, chess.WHITE), 0)
+        self.assertLess(ev._calculate_king_safety_for_color(board, chess.BLACK), 0)
+
+    def test_king_safety(self):
+        board = chess.Board(fen="r1bk1br1/ppp1qppp/n2p1n2/4p3/2B5/1P2PN2/P1PP1PPP/RNBQ1RK1 w - - 0 1")
+        ev = Eval(engine_color=chess.BLACK)
+        ev_white = ev.check_king_safety(board, chess.WHITE)
+        ev_black = ev.check_king_safety(board, chess.BLACK)
+        self.assertGreater(ev_white, ev_black)
