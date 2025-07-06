@@ -169,9 +169,8 @@ class Game:
                         else:
                             move = chess.Move(from_square, to_square)
                         if move in self.board.legal_moves:
-                            # print(self.board.fen())
                             self.board.push(move)
-                            print(self.board.fen())
+                            if with_fen: print(self.board.fen())
                     self.dragging = False
                     self.dragged_piece = None
 

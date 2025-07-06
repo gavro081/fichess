@@ -195,10 +195,14 @@ class Eval:
 
         if board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
             return 0
-        side_to_evaluate = board.turn
+        side_to_evaluate = not board.turn
         e = self.evaluate_board(board, side_to_evaluate) if board.fullmove_number > 6 else self.score_material(board, side_to_evaluate)
         c = self.check_pawn_structure(board, side_to_evaluate)
         d = self.evaluate_development(board, side_to_evaluate)
         k = self.check_king_safety(board, side_to_evaluate)
+        # print(f"e: {e}")
+        # print(f"c: {c}")
+        # print(f"d: {d}")
+        # print(f"k: {k}")
         score = e + c + d + k
         return score
