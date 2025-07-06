@@ -6,15 +6,15 @@ import chess.engine
 from engine.Agent import Agent, Eval
 
 class TestEngine(unittest.TestCase):
-    # def test_engine_1(self):
-    #     board = chess.Board(fen=STARTING_FEN)
-    #     board.push_uci("d2d4")
-    #     board.push_uci("g8h6")
-    #     board.push_uci("c1h6")
-    #     agent = Agent(engine_color=chess.BLACK)
-    #     best_move, a = agent.alpha_beta(board, depth=1, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
-    #     self.assertIsNotNone(a)
-    #     self.assertTrue(a == chess.Move.from_uci("g7h6"), f"played move {a}, right move is g7h6")
+    def test_engine_1(self):
+        board = chess.Board(fen=STARTING_FEN)
+        board.push_uci("d2d4")
+        board.push_uci("g8h6")
+        board.push_uci("c1h6")
+        agent = Agent(engine_color=chess.BLACK)
+        best_move, a = agent.alpha_beta(board, depth=1, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+        self.assertIsNotNone(a)
+        self.assertTrue(a == chess.Move.from_uci("g7h6"), f"played move {a}, right move is g7h6")
 
     def test_engine_m1(self):
         board = chess.Board(fen="3q2k1/8/8/8/8/1P6/P6r/K7 b - - 0 1")
