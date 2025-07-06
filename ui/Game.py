@@ -104,7 +104,7 @@ class Game:
         pygame.display.flip()
         pygame.time.wait(2000)
 
-    def start_game(self, engine_color: chess.Color = chess.BLACK):
+    def start_game(self, engine_color: chess.Color = chess.BLACK, with_fen: bool = False):
         running = True
         agent = Agent(engine_color=engine_color)
         while running:
@@ -128,6 +128,7 @@ class Game:
                 best_move = agent.alpha_beta(self.board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
                 if best_move:
                     self.board.push(best_move)
+                    if with_fen: print(self.board.fen())
                     self.screen.fill((200, 200, 200))
                     self.render()
                     pygame.display.flip()
@@ -170,6 +171,7 @@ class Game:
                         if move in self.board.legal_moves:
                             # print(self.board.fen())
                             self.board.push(move)
+                            print(self.board.fen())
                     self.dragging = False
                     self.dragged_piece = None
 
