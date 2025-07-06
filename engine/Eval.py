@@ -133,27 +133,22 @@ class Eval:
         return 0
 
     def evaluate_development(self, board: chess.Board, color: chess.Color) -> int:
+        # only looks at minor pieces, TODO: handle pawns
         score = 0
         if board.fullmove_number > 10:
             return 0
 
-        pawn_target_ranks = {chess.WHITE: {chess.C4: 15, chess.D4: 20, chess.C3: 5, chess.D3: 10},
-                             chess.BLACK: {chess.C5: 15, chess.D5: 20, chess.C6: 5, chess.D6: 10}}
-
         undeveloped_squares = {
-            chess.WHITE: [chess.B1, chess.G1, chess.C1, chess.F1, chess.C2, chess.D2, chess.E2, chess.F2],
-            chess.BLACK: [chess.B8, chess.G8, chess.C8, chess.F8, chess.C7, chess.D7, chess.E7, chess.F7],
+            chess.WHITE: [chess.B1, chess.G1, chess.C1, chess.F1],
+            chess.BLACK: [chess.B8, chess.G8, chess.C8, chess.F8]
         }
 
-        for sq in undeveloped_squares[color]:
-            piece = board.piece_at(sq)
-            if piece and piece.piece_type in [chess.BISHOP, chess.KNIGHT, chess.PAWN] and piece.color == color:
-                score -= 20
-
-        for square, bonus in pawn_target_ranks[color].items():
-            piece = board.piece_at(square)
-            if piece and piece.piece_type == chess.PAWN and piece.color == color:
-                score += bonus
+        for color_ in [chess.WHITE, chess.BLACK]:
+            sign = 1 if color_ == color else -1
+            for sq in undeveloped_squares[color_]:
+                piece = board.piece_at(sq)
+                if piece and piece.piece_type in [chess.BISHOP, chess.KNIGHT]:
+                    score -= 15 * sign
 
         return score
 
