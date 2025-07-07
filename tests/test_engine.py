@@ -12,9 +12,12 @@ class TestEngine(unittest.TestCase):
         board.push_uci("g8h6")
         board.push_uci("c1h6")
         agent = Agent(engine_color=chess.BLACK)
-        best_move, a = agent.alpha_beta(board, depth=1, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
-        self.assertIsNotNone(a)
-        self.assertTrue(a == chess.Move.from_uci("g7h6"), f"played move {a}, right move is g7h6")
+        _, move1 = agent.alpha_beta(board, depth=1, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+        _, move2 = agent.alpha_beta(board, depth=2, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+        _, move3 = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+        _, move4 = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+
+        self.assertTrue(move1 == move2 == move3 == move4, f"moves are not the same across all depths, right move is g7h6")
 
     def test_engine_m1(self):
         board = chess.Board(fen="3q2k1/8/8/8/8/1P6/P6r/K7 b - - 0 1")
@@ -36,28 +39,31 @@ class TestEngine(unittest.TestCase):
         if move: board.push(move)
         self.assertTrue(board.is_checkmate(), "can't find trivial mate in 2")
 
-    # def test_engine_against_stockfish(self):
-    #     fen1 = "1r2k2r/pp3ppp/8/3R1n2/2P2P2/P5PP/2R4K/2B5 b - - 0 14"
-    #     fen2 = "1r6/pp3pp1/1k6/3RRP2/2P3Kp/P2rB2P/8/8 b - - 0 14"
-    #     fens = [fen1, fen2]
-    #     for fen in fens:
-    #         with self.subTest(fen=fen):
-    #             board = chess.Board(fen=fen)
-    #             agent = Agent(engine_color=chess.BLACK)
-    #             _, move = agent.alpha_beta(board, 3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
-    #             with chess.engine.SimpleEngine.popen_uci("/opt/homebrew/bin/stockfish") as engine:
-    #                 result = engine.play(board, chess.engine.Limit(time=0.4))
-    #                 self.assertTrue(move == result.move, f"Expected move {result.move}, got {move}, fen: {fen}")
+    def test_engine_against_stockfish(self):
+        fen1 = "1r2k2r/pp3ppp/8/3R1n2/2P2P2/P5PP/2R4K/2B5 b - - 0 14"
+        fen2 = "1r6/pp3pp1/1k6/3RRP2/2P3Kp/P2rB2P/8/8 b - - 0 14"
+        fens = [fen1, fen2]
+        for fen in fens:
+            with self.subTest(fen=fen):
+                board = chess.Board(fen=fen)
+                agent = Agent(engine_color=chess.BLACK)
+                _, move = agent.alpha_beta(board, 3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+                with chess.engine.SimpleEngine.popen_uci("/opt/homebrew/bin/stockfish") as engine:
+                    result = engine.play(board, chess.engine.Limit(time=0.4))
+                    self.assertTrue(move == result.move, f"Expected move {result.move}, got {move}, fen: {fen}")
 
 class TestEval(unittest.TestCase):
     evaluator = Eval()
-    evaluator_white = Eval(engine_color=chess.WHITE)
-    evaluator_black = Eval(engine_color=chess.BLACK)
     def test_eval_board(self):
         board = chess.Board(fen="N2K3N/8/8/4n3/2n5/8/8/3k4 w - - 0 1")
         black_score = self.evaluator.evaluate_board(board, color=chess.BLACK)
         white_score = self.evaluator.evaluate_board(board, color=chess.WHITE)
         self.assertGreater(black_score, white_score, "knights in the middle aren't worth more than knights in corners.")
+
+    def test_pawn_development(self):
+        board = chess.Board(fen="rnbqkbnr/pp1pp1pp/2p5/5p2/3P4/4P3/PPP2PPP/RNBQKBNR w KQkq f6 0 1")
+        score = self.evaluator.pawn_development(board, color=chess.WHITE)
+        self.assertGreater(score, 0, "white doesn't have an advantage even though his pawns are better developed.")
 
     def test_pawn_structure(self):
         board = chess.Board(fen=STARTING_FEN)
@@ -81,7 +87,7 @@ class TestEval(unittest.TestCase):
         white_safety = self.evaluator._calculate_king_safety_for_color(board, chess.WHITE)
         black_safety = self.evaluator._calculate_king_safety_for_color(board, chess.BLACK)
         self.assertEqual(white_safety, 0, "white hasn't castled but can castle; no penalty should be given!")
-        self.assertLess(black_safety, 0, "black can't castle and hasn't castled; penalty should be given!")
+        self.assertLess(black_safety, 0, "black can't castle and doesn't have pawn shield; penalty should be given!")
 
     def test_king_safety(self):
         board = chess.Board(fen="r1bk1br1/ppp1qppp/n2p1n2/4p3/2B5/1P2PN2/P1PP1PPP/RNBQ1RK1 w - - 0 1")
@@ -98,3 +104,8 @@ class TestEval(unittest.TestCase):
         board = chess.Board(fen="rnbqk2r/pppppppp/8/8/8/8/PP3PPP/RNBQKB1R w KQkq - 0 1")
         score = self.evaluator.score_material(board, chess.WHITE)
         self.assertGreater(score, 0, "white should be winning; check consts.")
+
+    def test_development_2(self):
+        board = chess.Board(fen="r1bqkbr1/ppppp1pp/2n2p1n/8/7N/2NPP3/PPP2PPP/R1BQKB1R w KQkq - 0 1")
+        score = self.evaluator.evaluate_development(board, chess.WHITE)
+        self.assertGreater(score, 0, "rook g8 is not being penalized")

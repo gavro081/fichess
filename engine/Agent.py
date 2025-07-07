@@ -78,6 +78,7 @@ class Agent:
 
     def test_with_stack_trace(self, board: chess.Board):
         score, move, line = self.alpha_beta_with_trace(board, 4, float('-inf'), float('inf'), True)
+        print(f"Score: {score}")
         print(f"Best Move: {move}")
         print(f"Principal Variation:")
         for ply in line:
