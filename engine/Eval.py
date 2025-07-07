@@ -1,4 +1,5 @@
 import chess
+
 from engine import consts
 
 class Helper:
@@ -61,12 +62,44 @@ class Eval:
         self.piece_scores = consts.piece_scores
         self.helper = Helper()
 
-    def check_center_control(self, board: chess.Board) -> int:
-        raise NotImplementedError
-
     def check_piece_coordination(self, board: chess.Board) -> int:
         # double rooks, queen and bishop battery, Knight outposts protected by pawns
         raise NotImplementedError
+
+    def evaluate_rook_files(self, board: chess.Board, color: chess.Color) -> int:
+        # open file is when there are no pawns on the file
+        # semi open file is when there are only opposing pawns on the file
+        score = 0
+        for color_ in [chess.WHITE, chess.BLACK]:
+            for square in board.pieces(chess.ROOK, color_):
+                sign = 1 if color_ == color else -1
+                file = chess.square_file(square)
+                open_file = True
+                semi_open = True
+                for rank in range(8):
+                    piece = board.piece_at(chess.square(file, rank))
+                    if piece and piece.piece_type == chess.PAWN:
+                        if piece.color == color_:
+                            open_file = False
+                            semi_open = False
+                            break
+                        else:
+                            open_file = False
+                if open_file:
+                    score += 20 * sign
+                elif semi_open:
+                    score += 10 * sign
+
+        return score
+
+    def evaluate_center_control(self, board: chess.Board, color: chess.Color):
+        center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+        score = 0
+        for square in center_squares:
+            attackers = board.attackers(color, square)
+            defenders = board.attackers(not color, square)
+            score += len(attackers) - len(defenders)
+        return score * 5
 
     def evaluate_legal_moves(self, board: chess.Board) -> int:
         board_ = board.copy()
@@ -74,7 +107,7 @@ class Eval:
         score += len(list(board_.legal_moves))
         board_.turn = not board_.turn
         score -= len(list(board_.legal_moves))
-        return score
+        return score * 2
 
     def evaluate_pawn_structure(self, board: chess.Board, color: chess.Color) -> int:
         # TODO: clean up
@@ -243,8 +276,9 @@ class Eval:
             sign = 1 if piece_color == color else -1
             material_score += sign * self.piece_scores[piece_type]
 
-            mg_score += sign * self.mg_tables[piece_type][index] * 1
-            eg_score += sign * self.eg_tables[piece_type][index] * 1
+            # TODO: find better weights
+            mg_score += sign * self.mg_tables[piece_type][index] * 0.5
+            eg_score += sign * self.eg_tables[piece_type][index] * 0.5
 
             phase += self.phase_weights[piece_type]
 
@@ -264,19 +298,17 @@ class Eval:
 
         if board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
             return 0
+
         side_to_evaluate = self.engine_color
+
         e = self.evaluate_board(board, side_to_evaluate) if board.fullmove_number > 10 else self.evaluate_material(board, side_to_evaluate)
         c = self.evaluate_pawn_structure(board, side_to_evaluate)
         d = self.evaluate_development(board, side_to_evaluate)
         k = self.evaluate_king_safety(board, side_to_evaluate)
-        p = self.evaluate_development(board, side_to_evaluate)
+        p = self.evaluate_pawn_development(board, side_to_evaluate)
         m = self.evaluate_legal_moves(board)
-        score = e + c + d + k + p + m
-        # if score == -135:
-        #     print(f"e: {e}")
-        #     print(f"c: {c}")
-        #     print(f"d: {d}")
-        #     print(f"k: {k}")
-        #     print(f"p: {p}")
-        #     print()
+        cc = self.evaluate_center_control(board, side_to_evaluate)
+        r = self.evaluate_rook_files(board, side_to_evaluate)
+        score = e + c + d + k + p + m + cc + r
+
         return score

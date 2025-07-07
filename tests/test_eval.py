@@ -63,3 +63,13 @@ class TestEval(unittest.TestCase):
         board = chess.Board(fen="r1bqkbr1/ppppp1pp/2n2p1n/8/7N/2NPP3/PPP2PPP/R1BQKB1R w KQkq - 0 1")
         score = self.evaluator.evaluate_development(board, chess.WHITE)
         self.assertGreater(score, 0, "rook g8 is not being penalized")
+
+    def test_rook_files(self):
+        board = chess.Board(fen="r1bqkb2/pppppp1p/7r/n7/8/N7/P1PP1P2/R2QK2R w - - 0 1")
+        score = self.evaluator.evaluate_rook_files(board, chess.WHITE)
+        self.assertEqual(score, 10, "white doesn't get an advantage for a semi open file that black doesn't have.")
+
+    def test_center_control(self):
+        board = chess.Board(fen="r1bqkb2/ppp1pp1p/8/n2p3r/8/3Q1N2/P1PP1P2/R3K2R w - - 0 1")
+        score = self.evaluator.evaluate_center_control(board, chess.WHITE)
+        self.assertGreater(score, 0, "center control advantage isn't evaluated properly")
