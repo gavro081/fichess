@@ -19,7 +19,7 @@ class Agent:
                 board.pop()
                 if score > max_score:
                     best_move = move
-                    max_eval = score
+                    max_score = score
                 alpha = max(alpha, score)
                 if beta <= alpha:
                     break
