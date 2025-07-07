@@ -12,28 +12,28 @@ class Agent:
         best_move = None
         legal_moves = list(board.legal_moves)
         if maximizing_player:
-            max_eval = float('-inf')
+            max_score = float('-inf')
             for move in legal_moves:
                 board.push(move)
-                eval, _ = self.alpha_beta(board, depth - 1, alpha, beta, False)
+                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, False)
                 board.pop()
-                if eval > max_eval:
+                if score > max_score:
                     best_move = move
-                    max_eval = eval
-                alpha = max(alpha, eval)
+                    max_eval = score
+                alpha = max(alpha, score)
                 if beta <= alpha:
                     break
-            return max_eval, best_move
+            return max_score, best_move
         else:
             min_eval = float('inf')
             for move in legal_moves:
                 board.push(move)
-                eval, _ = self.alpha_beta(board, depth - 1, alpha, beta, True)
+                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, True)
                 board.pop()
-                if eval < min_eval:
+                if score < min_eval:
                     best_move = move
-                    min_eval = eval
-                beta = min(beta, eval)
+                    min_eval = score
+                beta = min(beta, score)
                 if beta <= alpha:
                     break
             return min_eval, best_move
@@ -48,33 +48,33 @@ class Agent:
 
         legal_moves = list(board.legal_moves)
         if maximizing_player:
-            max_eval = float('-inf')
+            max_score = float('-inf')
             for move in legal_moves:
                 board.push(move)
-                eval, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, False)
+                score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, False)
                 board.pop()
-                if eval > max_eval:
-                    max_eval = eval
+                if score > max_score:
+                    max_score = score
                     best_move = move
                     best_line = [move] + line
-                alpha = max(alpha, eval)
+                alpha = max(alpha, score)
                 if beta <= alpha:
                     break
-            return max_eval, best_move, best_line
+            return max_score, best_move, best_line
         else:
-            min_eval = float('inf')
+            min_score = float('inf')
             for move in legal_moves:
                 board.push(move)
-                eval, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, True)
+                score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, True)
                 board.pop()
-                if eval < min_eval:
-                    min_eval = eval
+                if score < min_score:
+                    min_score = score
                     best_move = move
                     best_line = [move] + line
-                beta = min(beta, eval)
+                beta = min(beta, score)
                 if beta <= alpha:
                     break
-            return min_eval, best_move, best_line
+            return min_score, best_move, best_line
 
     def test_with_stack_trace(self, board: chess.Board):
         score, move, line = self.alpha_beta_with_trace(board, 4, float('-inf'), float('inf'), True)

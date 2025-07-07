@@ -1,6 +1,55 @@
 import chess
 from engine import consts
 
+class Helper:
+    @staticmethod
+    def king_is_castled(board: chess.Board, color: chess.Color) -> bool:
+        king_square = board.king(color)
+        if (color == chess.WHITE and king_square in [chess.G1, chess.C1]) or \
+                (color == chess.BLACK and king_square in [chess.G8, chess.C8]): return True
+        return False
+
+    @staticmethod
+    def king_has_pawn_shield(board: chess.Board, color: chess.Color) -> bool:
+        king_square = board.king(color)
+        if not king_square:
+            return False
+
+        king_file = chess.square_file(king_square)
+
+        if king_file < 3:
+            pawn_files = [0, 1, 2]  # a, b, c files
+        elif king_file > 4:
+            pawn_files = [5, 6, 7]  # f, g, h files
+        else:
+            return False
+
+        pawn_rank = chess.square_rank(king_square) + (1 if color == chess.WHITE else -1)
+        if not (0 < pawn_rank < 7):
+            return False
+
+        shield_count = 0
+        for file in pawn_files:
+            pawn = board.piece_at(chess.square(file, pawn_rank))
+            if pawn and pawn.piece_type == chess.PAWN and pawn.color == color:
+                shield_count += 1
+
+        return shield_count >= 2
+
+    def king_safety_for_color(self, board: chess.Board, color: chess.Color):
+        king = board.king(color)
+        if not king:
+            return 0
+        king_rank = chess.square_rank(king)
+
+        if self.king_has_pawn_shield(board, color) and king_rank == (0 if color == chess.WHITE else 7):
+            return 50
+
+        if not board.has_castling_rights(color):
+            return -75
+
+        return 0
+
 class Eval:
     def __init__(self, engine_color: chess.Color = chess.WHITE):
         self.max_depth = 3 # not used rn
@@ -10,11 +59,16 @@ class Eval:
         self.phase_weights = consts.PHASE_WEIGHT
         self.total_phase = consts.TOTAL_PHASE_WEIGHT
         self.piece_scores = consts.piece_scores
+        self.helper = Helper()
 
     def check_center_control(self, board: chess.Board) -> int:
         raise NotImplementedError
 
-    def legal_moves_count(self, board: chess.Board) -> int:
+    def check_piece_coordination(self, board: chess.Board) -> int:
+        # double rooks, queen and bishop battery, Knight outposts protected by pawns
+        raise NotImplementedError
+
+    def evaluate_legal_moves(self, board: chess.Board) -> int:
         board_ = board.copy()
         score = 0
         score += len(list(board_.legal_moves))
@@ -22,11 +76,7 @@ class Eval:
         score -= len(list(board_.legal_moves))
         return score
 
-    def check_piece_coordination(self, board: chess.Board) -> int:
-        # double rooks, queen and bishop battery, Knight outposts protected by pawns
-        raise NotImplementedError
-
-    def check_pawn_structure(self, board: chess.Board, color: chess.Color) -> int:
+    def evaluate_pawn_structure(self, board: chess.Board, color: chess.Color) -> int:
         # TODO: clean up
         score = 0
         # doubled pawns
@@ -100,56 +150,44 @@ class Eval:
 
         return score
 
-    def _king_is_castled(self, board: chess.Board, color: chess.Color) -> bool:
-        king_square = board.king(color)
-        if (color == chess.WHITE and king_square in [chess.G1, chess.C1]) or \
-                (color == chess.BLACK and king_square in [chess.G8, chess.C8]): return True
-        return False
+    def evaluate_pawn_development(self, board: chess.Board, color: chess.Color) -> int:
+        if board.fullmove_number > 16:
+            return 0
+        score = 0
+        important_files = [3,4]
+        less_important_files = [2,5]
+        for color_ in [chess.WHITE, chess.BLACK]:
+            sign = 1 if color_ == color else -1
+            if color_ == chess.WHITE:
+                second_rank, third_rank, fourth_rank = 1, 2, 3
+            else:
+                second_rank, third_rank, fourth_rank = 6, 5, 4
 
-    def check_king_safety(self, board: chess.Board, color: chess.Color) -> int:
-        engine_ks_score = self._calculate_king_safety_for_color(board, color)
-        opp_ks_score = self._calculate_king_safety_for_color(board, not color)
+            pawns = board.pieces(chess.PAWN, color_)
+            for square in pawns:
+                file = chess.square_file(square)
+                rank = chess.square_rank(square)
+                if file in important_files:
+                    if rank == second_rank:
+                        score -= 15 * sign
+                    elif rank == third_rank:
+                        score += 10 * sign
+                    elif rank == fourth_rank:
+                        score += 20 * sign
+                elif file in less_important_files:
+                    if rank == second_rank:
+                        score -= 5 * sign
+                    elif rank == third_rank:
+                        score += 5 * sign
+                    elif rank == fourth_rank:
+                        score += 10 * sign
+        return score
+
+    def evaluate_king_safety(self, board: chess.Board, color: chess.Color) -> int:
+        engine_ks_score = self.helper.king_safety_for_color(board, color)
+        opp_ks_score = self.helper.king_safety_for_color(board, not color)
 
         return engine_ks_score - opp_ks_score
-
-    def _king_has_pawn_shield(self, board: chess.Board, color: chess.Color) -> bool:
-        king_square = board.king(color)
-        if not king_square:
-            return False
-
-        king_file = chess.square_file(king_square)
-
-        if king_file < 3:
-            pawn_files = [0, 1, 2]  # a, b, c files
-        elif king_file > 4:
-            pawn_files = [5, 6, 7]  # f, g, h files
-        else:
-            return False
-
-        pawn_rank = chess.square_rank(king_square) + (1 if color == chess.WHITE else -1)
-        if not (0 < pawn_rank < 7):
-            return False
-
-        shield_count = 0
-        for file in pawn_files:
-            pawn = board.piece_at(chess.square(file, pawn_rank))
-            if pawn and pawn.piece_type == chess.PAWN and pawn.color == color:
-                shield_count += 1
-
-        return shield_count >= 2
-
-    def _calculate_king_safety_for_color(self, board: chess.Board, color: chess.Color):
-        king = board.king(color)
-        if not king: 
-            return 0
-        king_rank = chess.square_rank(king)
-        if self._king_has_pawn_shield(board, color) and king_rank == (0 if color == chess.WHITE else 7):
-            return 50
-
-        if not board.has_castling_rights(color):
-            return -75
-
-        return 0
 
     def evaluate_development(self, board: chess.Board, color: chess.Color) -> int:
         # evaluates knights, bishops, rooks
@@ -183,7 +221,7 @@ class Eval:
 
         return score
 
-    def score_material(self, board: chess.Board, color: chess.Color) -> float:
+    def evaluate_material(self, board: chess.Board, color: chess.Color) -> float:
         score = 0
         for piece in board.piece_map().values():
             score += self.piece_scores[piece.piece_type] if piece.color == color \
@@ -217,40 +255,6 @@ class Eval:
         total_score = score + material_score
         return total_score
 
-    def pawn_development(self, board: chess.Board, color: chess.Color) -> int:
-        if board.fullmove_number > 16:
-            return 0
-        score = 0
-        important_files = [3,4]
-        less_important_files = [2,5]
-        for color_ in [chess.WHITE, chess.BLACK]:
-            sign = 1 if color_ == color else -1
-            if color_ == chess.WHITE:
-                second_rank, third_rank, fourth_rank = 1, 2, 3
-            else:
-                second_rank, third_rank, fourth_rank = 6, 5, 4
-
-            pawns = board.pieces(chess.PAWN, color_)
-            for square in pawns:
-                file = chess.square_file(square)
-                rank = chess.square_rank(square)
-                if file in important_files:
-                    if rank == second_rank:
-                        score -= 15 * sign
-                    elif rank == third_rank:
-                        score += 10 * sign
-                    elif rank == fourth_rank:
-                        score += 20 * sign
-                elif file in less_important_files:
-                    if rank == second_rank:
-                        score -= 5 * sign
-                    elif rank == third_rank:
-                        score += 5 * sign
-                    elif rank == fourth_rank:
-                        score += 10 * sign
-        return score
-
-
     def evaluate(self, board: chess.Board, depth: int) -> float:
         if board.is_checkmate():
             # if it is the engine's turn and it is checkmate, it means the engine has lost
@@ -261,12 +265,12 @@ class Eval:
         if board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
             return 0
         side_to_evaluate = self.engine_color
-        e = self.evaluate_board(board, side_to_evaluate) if board.fullmove_number > 10 else self.score_material(board, side_to_evaluate)
-        c = self.check_pawn_structure(board, side_to_evaluate)
+        e = self.evaluate_board(board, side_to_evaluate) if board.fullmove_number > 10 else self.evaluate_material(board, side_to_evaluate)
+        c = self.evaluate_pawn_structure(board, side_to_evaluate)
         d = self.evaluate_development(board, side_to_evaluate)
-        k = self.check_king_safety(board, side_to_evaluate)
-        p = self.pawn_development(board, side_to_evaluate)
-        m = self.legal_moves_count(board)
+        k = self.evaluate_king_safety(board, side_to_evaluate)
+        p = self.evaluate_development(board, side_to_evaluate)
+        m = self.evaluate_legal_moves(board)
         score = e + c + d + k + p + m
         # if score == -135:
         #     print(f"e: {e}")
