@@ -2,7 +2,7 @@ import chess
 
 from engine import consts
 
-class Helper:
+class EvalHelper:
     @staticmethod
     def king_is_castled(board: chess.Board, color: chess.Color) -> bool:
         king_square = board.king(color)
@@ -60,7 +60,7 @@ class Eval:
         self.phase_weights = consts.PHASE_WEIGHT
         self.total_phase = consts.TOTAL_PHASE_WEIGHT
         self.piece_scores = consts.piece_scores
-        self.helper = Helper()
+        self.helper = EvalHelper()
 
     def check_piece_coordination(self, board: chess.Board) -> int:
         # double rooks, queen and bishop battery, Knight outposts protected by pawns
@@ -289,17 +289,16 @@ class Eval:
         total_score = score + material_score
         return total_score
 
-    def evaluate(self, board: chess.Board, depth: int) -> float:
+    def evaluate(self, board: chess.Board, depth: int, color: chess.Color | None = None) -> float:
+        side_to_evaluate = self.engine_color if not color else color
         if board.is_checkmate():
             # if it is the engine's turn and it is checkmate, it means the engine has lost
             # give priority to mates that appear earlier in the search
-            return -consts.MATE_SCORE + depth if board.turn == self.engine_color \
+            return -consts.MATE_SCORE + depth if board.turn == side_to_evaluate \
                 else consts.MATE_SCORE + depth
 
         if board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
             return 0
-
-        side_to_evaluate = self.engine_color
 
         e = self.evaluate_board(board, side_to_evaluate) if board.fullmove_number > 10 else self.evaluate_material(board, side_to_evaluate)
         c = self.evaluate_pawn_structure(board, side_to_evaluate)

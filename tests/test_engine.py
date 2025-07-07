@@ -2,6 +2,7 @@ import unittest
 import chess
 from chess import STARTING_FEN
 import chess.engine
+import time
 
 from engine.Agent import Agent
 
@@ -12,29 +13,29 @@ class TestEngine(unittest.TestCase):
         board.push_uci("g8h6")
         board.push_uci("c1h6")
         agent = Agent(engine_color=chess.BLACK)
-        _, move1 = agent.alpha_beta(board, depth=1, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
-        _, move2 = agent.alpha_beta(board, depth=2, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
-        _, move3 = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
-        _, move4 = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+        move1 = agent.alpha_beta(board, depth=1, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
+        move2 = agent.alpha_beta(board, depth=2, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
+        move3 = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
+        move4 = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
 
         self.assertTrue(move1 == move2 == move3 == move4, f"moves are not the same across all depths, right move is g7h6")
 
     def test_engine_m1(self):
         board = chess.Board(fen="3q2k1/8/8/8/8/1P6/P6r/K7 b - - 0 1")
         agent = Agent(engine_color=chess.BLACK)
-        best_move = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
-        self.assertIsNotNone(best_move)
-        if best_move: board.push(best_move)
+        move = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
+        self.assertIsNotNone(move)
+        if move: board.push(move)
         self.assertTrue(board.is_checkmate(), "can't find trivial mate in 1")
 
     def test_engine_m2(self):
         board = chess.Board(fen="8/8/8/8/8/1r6/K7/3k4 b - - 0 1")
         agent = Agent(engine_color=chess.BLACK)
-        move = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
+        move = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
         self.assertIsNotNone(move)
         if move: board.push(move)
         board.push_uci("a2a1")
-        move = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
+        move = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
         self.assertIsNotNone(move)
         if move: board.push(move)
         self.assertTrue(board.is_checkmate(), "can't find trivial mate in 2")
@@ -47,8 +48,27 @@ class TestEngine(unittest.TestCase):
             with self.subTest(fen=fen):
                 board = chess.Board(fen=fen)
                 agent = Agent(engine_color=chess.BLACK)
-                _, move = agent.alpha_beta(board, 3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
+                move = agent.alpha_beta(board, 3, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color))[1]
                 with chess.engine.SimpleEngine.popen_uci("/opt/homebrew/bin/stockfish") as engine:
                     result = engine.play(board, chess.engine.Limit(time=0.4))
                     self.assertTrue(move == result.move, f"Expected move {result.move}, got {move}, fen: {fen}")
 
+    # def test_engine_move_sorting(self):
+    #     board = chess.Board(fen="r2qk2r/p1p2ppp/1pb1pn2/2bp4/4P3/1PNB1N2/PBPPQPPP/R4RK1 b - - 0 1")
+    #     agent = Agent(engine_color=chess.BLACK)
+    #     # Test without sorting
+    #     start_time = time.time()
+    #     _, move = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color),
+    #                                sorted=False)
+    #     end_time = time.time()
+    #     print(f"Time without sorting: {end_time - start_time:.4f} seconds, move: {move}")
+    #     start_time = time.time()
+    #     _, move = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color), sorted=True)
+    #     end_time = time.time()
+    #     print(f"Time with sorting: {end_time - start_time:.4f} seconds, move: {move}")
+
+    # def test_quiescence_1(self):
+    #     board = chess.Board(fen="rnb1kbnr/pppp1ppp/4p3/8/6Pq/P1N5/1PPPPP1P/R1BQKBNR b KQkq - 0 1")
+    #     agent = Agent(engine_color=chess.BLACK)
+    #     agent.test_with_stack_trace(board, quiescence=True)
+    #

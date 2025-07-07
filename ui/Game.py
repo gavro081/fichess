@@ -87,10 +87,11 @@ class Game:
 
     def is_player_piece(self, square: chess.Square) -> bool:
         piece = self.board.piece_at(square)
-        return piece and piece.color == self.board.turn
+        if not piece:
+            return False
+        return piece.color == self.board.turn
 
     def render(self):
-        # Draw turn indicator
         turn_text = f"{'White' if self.board.turn == chess.WHITE else 'Black'}'s turn"
         turn_label = self.font.render(turn_text, True, BLACK)
         self.screen.blit(turn_label, (PADDING, PADDING // 2 - turn_label.get_height() // 2))
