@@ -18,9 +18,12 @@ class EvalHelper:
 
         king_file = chess.square_file(king_square)
 
-        if king_file < 3:
+        # TODO:
+        # this makes it better for king to castle
+        # test if it efficient, if not remove it or change logic
+        if king_file < 2:
             pawn_files = [0, 1, 2]  # a, b, c files
-        elif king_file > 4:
+        elif king_file > 5:
             pawn_files = [5, 6, 7]  # f, g, h files
         else:
             return False
