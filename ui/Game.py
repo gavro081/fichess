@@ -56,6 +56,7 @@ class Game:
         self.dragged_pos = (0, 0)
         self.mouse_offset = (0, 0)
         self.screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+        self.last_move = None
         pygame.display.set_caption("Chess Board")
 
     def is_player_piece(self, square):
@@ -87,6 +88,17 @@ class Game:
                     self.screen.blit(self.images[key], rect.topleft)
             label = self.font.render(str(8 - row), True, BLACK)
             self.screen.blit(label, (PADDING - 25, PADDING + row * SQUARE_SIZE + SQUARE_SIZE // 2 - label.get_height() // 2))
+        if self.last_move:
+            for square in [self.last_move.from_square, self.last_move.to_square]:
+                col = chess.square_file(square)
+                row = 7 - chess.square_rank(square)
+                rect = pygame.Rect(
+                    PADDING + col * SQUARE_SIZE,
+                    PADDING + row * SQUARE_SIZE,
+                    SQUARE_SIZE,
+                    SQUARE_SIZE
+                )
+                pygame.draw.rect(self.screen, (255, 252, 166), rect, 6)
         for col in range(8):
             label = self.font.render(files[col], True, BLACK)
             self.screen.blit(label, (PADDING + col * SQUARE_SIZE + SQUARE_SIZE // 2 - label.get_width() // 2,
@@ -125,9 +137,10 @@ class Game:
 
             if self.board.turn == engine_color:
                 # agent should always start as max
-                best_move = agent.alpha_beta(self.board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
+                best_move = agent.alpha_beta(self.board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player = (self.board.turn == agent.evaluator.engine_color))[1]
                 if best_move:
                     self.board.push(best_move)
+                    self.last_move = best_move
                     if with_fen: print(self.board.fen())
                     self.screen.fill((200, 200, 200))
                     self.render()
@@ -170,6 +183,7 @@ class Game:
                             move = chess.Move(from_square, to_square)
                         if move in self.board.legal_moves:
                             self.board.push(move)
+                            self.last_move = move
                             if with_fen: print(self.board.fen())
                     self.dragging = False
                     self.dragged_piece = None
