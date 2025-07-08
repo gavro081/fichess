@@ -240,9 +240,8 @@ class Agent:
             if move is not None:
                 best_move = move
                 best_score = score
-            print(f"Depth {depth} complete. Best move: {best_move}, Eval: {score}")
-        print(f"best move: {best_move}, best score: {best_score}")
-        return (best_move, best_score)
+
+        return best_move, best_score
     
 
 

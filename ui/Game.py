@@ -69,6 +69,7 @@ class Game:
         self.mouse_offset = (0, 0)
         self.last_move = None
         self.flipped = False
+        self.engine_score = 0
 
     def _handle_capture(self, move: chess.Move):
         captured_piece = None
@@ -149,8 +150,8 @@ class Game:
         elif score_diff < 0:
             black_score_text = f"{score_diff}"
 
-        draw_set("Black's Captures", black_score_text, self.captured_by_black, PADDING)
-        draw_set("White's Captures", white_score_text, self.captured_by_white, PADDING + 200)
+        draw_set("Black's Captures", black_score_text, self.captured_by_black, PADDING + 50)
+        draw_set("White's Captures", white_score_text, self.captured_by_white, PADDING + 250)
 
     def render(self):
         turn_text = f"{'White' if self.board.turn == chess.WHITE else 'Black'}'s turn"
@@ -199,6 +200,11 @@ class Game:
                 center=(PADDING + col * SQUARE_SIZE + SQUARE_SIZE // 2, PADDING + BOARD_SIZE + 20))
             self.screen.blit(label, label_rect)
 
+        score_text = f"Engine eval: {self.engine_score:.2f}"
+        score_color = (0, 128, 0) if self.engine_score > 0 else (200, 0, 0) if self.engine_score < 0 else BLACK
+        score_label = self.small_font.render(score_text, True, score_color)
+        self.screen.blit(score_label, (WINDOW_SIZE + PADDING, PADDING))
+
         self._render_captured()
 
         if self.dragging and self.dragged_piece:
@@ -236,7 +242,9 @@ class Game:
                 continue
 
             if self.board.turn == engine_color:
-                best_move = agent.alpha_beta(self.board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
+                # best_move = agent.alpha_beta(self.board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
+                best_move, best_score = agent.find_best_move(self.board)
+                self.engine_score = best_score
                 if best_move:
                     self._handle_capture(best_move)
                     self.board.push(best_move)
@@ -284,6 +292,7 @@ class Game:
                         if move in self.board.legal_moves:
                             self._handle_capture(move)
                             self.board.push(move)
+                            self.engine_score = agent.evaluator.evaluate(self.board, 0)
                             self.last_move = move
                             if with_fen: print(self.board.fen())
 
