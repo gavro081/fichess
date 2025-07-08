@@ -292,8 +292,9 @@ class Eval:
         total_score = score + material_score
         return total_score
 
-    def evaluate(self, board: chess.Board, depth: int, color: chess.Color | None = None) -> float:
-        side_to_evaluate = self.engine_color if not color else color
+    def evaluate(self, board: chess.Board, depth: int) -> float:
+        side_to_evaluate = self.engine_color
+
         if board.is_checkmate():
             # if it is the engine's turn and it is checkmate, it means the engine has lost
             # give priority to mates that appear earlier in the search

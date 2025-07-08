@@ -12,6 +12,9 @@ class NodeType(Enum):
 
 TTEntry = namedtuple('TTEntry', ['value', 'depth', 'flag', 'best_move'])
 
+# TODO
+MAX_QS_DEPTH = 6
+
 class Agent:
     def __init__(self, engine_color: chess.Color = chess.BLACK):
         self.evaluator = Eval(engine_color)
@@ -70,35 +73,30 @@ class Agent:
             alpha: float,
             beta: float,
             maximizing_player: bool,
-            sorted: bool = True
             ) -> tuple[float, chess.Move | None]:
         if depth == 0 or board.is_game_over():
-            return self.evaluator.evaluate(board, depth), None
-            # return self.quiescence(board, alpha, beta), None
-        if sorted:
-            # TODO: use better hash
-            key = hash(board.fen())
-            alpha_original = alpha
+            return self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None
+            # return self.evaluator.evaluate(board, depth), None
+        # TODO: use better hash
+        key = hash(board.fen())
+        alpha_original = alpha
 
-            if key in self.transposition_table:
-                value, stored_depth, flag, stored_move = self.transposition_table[key]
-                if stored_depth >= depth:
-                    if flag == NodeType.EXACT:
-                        return value, stored_move
-                    elif flag == NodeType.LOWER_BOUND and value >= beta:
-                        return value, stored_move
-                    elif flag == NodeType.UPPER_BOUND and value <= alpha:
-                        return value, stored_move
+        if key in self.transposition_table:
+            value, stored_depth, flag, stored_move = self.transposition_table[key]
+            if stored_depth >= depth:
+                if flag == NodeType.EXACT:
+                    return value, stored_move
+                elif flag == NodeType.LOWER_BOUND and value >= beta:
+                    return value, stored_move
+                elif flag == NodeType.UPPER_BOUND and value <= alpha:
+                    return value, stored_move
 
         best_move = None
         legal_moves = list(board.legal_moves)
 
-        if sorted:
-            move_scores = [(self.score_move(board, move, depth), move) for move in legal_moves]
-            move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
-            sorted_moves = [move for _, move in move_scores]
-        else:
-            sorted_moves = legal_moves
+        move_scores = [(self.score_move(board, move, depth), move) for move in legal_moves]
+        move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
+        sorted_moves = [move for _, move in move_scores]
 
         if maximizing_player:
             max_score = float('-inf')
@@ -117,7 +115,6 @@ class Agent:
                         if move not in self.killer_moves[depth]:
                             self.killer_moves[depth].append(move)
                     break
-            if not sorted: return max_score, best_move
             if max_score <= alpha_original:
                 flag = NodeType.UPPER_BOUND
             elif max_score >= beta:
@@ -153,41 +150,83 @@ class Agent:
             self.transposition_table[key] = TTEntry(min_eval, depth, flag, best_move)
             return min_eval, best_move
 
-    def quiescence(self, board: chess.Board, alpha: float, beta: float) -> float:
-        # NOT WORKING :(
+    def quiescence_minimax(self, board: chess.Board, main_depth: int, qs_depth: int, alpha: float, beta: float,
+                           maximizing_player: bool) -> float:
         # ref https://www.chessprogramming.org/Quiescence_Search
-        static_eval = self.evaluator.evaluate(board, 0)
+        # implemented using minimax instead of negamax for consistency
+        eval_depth = main_depth + qs_depth
 
-        best_value = static_eval
+        static_eval = self.evaluator.evaluate(board, eval_depth)
 
-        if best_value >= beta:
-            return best_value
-        if best_value > alpha:
-            alpha = best_value
+        if board.is_game_over() or qs_depth >= MAX_QS_DEPTH:
+            return static_eval
 
-        moves = [move for move in board.legal_moves if board.is_capture(move)]
+        if maximizing_player:
+            if static_eval >= beta:
+                return beta
+            if static_eval > alpha:
+                alpha = static_eval
+        else:
+            if static_eval <= alpha:
+                return alpha
+            if static_eval < beta:
+                beta = static_eval
 
-        for move in moves:
-            board.push(move)
-            score = -self.quiescence(board, -beta, -alpha)
-            board.pop()
+        moves = []
+        for move in board.legal_moves:
+            if board.is_capture(move):
+                # only consider captures that don't lose material
+                captured = board.piece_at(move.to_square)
+                attacker = board.piece_at(move.from_square)
+                if captured and attacker:
+                    if self.evaluator.piece_scores[captured.piece_type] >= self.evaluator.piece_scores[
+                        attacker.piece_type] + 10:
+                        moves.append(move)
+                    elif board.gives_check(move):
+                        moves.append(move)
 
-            if score >= beta:
-                return score
-            if score > best_value:
-                best_value = score
-            if score > alpha:
-                alpha = score
+        if qs_depth < 3:
+            # only check for checks in depths lower than 3
+            for move in board.legal_moves:
+                if board.gives_check(move) and move not in moves:
+                    moves.append(move)
 
-        return best_value
+        if len(moves) > 8:
+            move_scores = [(self.score_move(board, move, eval_depth), move) for move in moves]
+            move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
+            moves = [move for _, move in move_scores[:8]]
 
+        if maximizing_player:
+            for move in moves:
+                board.push(move)
+                score = self.quiescence_minimax(board, main_depth, qs_depth + 1, alpha, beta, False)
+                board.pop()
+
+                if score >= beta:
+                    return beta
+                if score > alpha:
+                    alpha = score
+            return alpha
+        else:
+            for move in moves:
+                board.push(move)
+                score = self.quiescence_minimax(board, main_depth, qs_depth + 1, alpha, beta, True)
+                board.pop()
+
+                if score <= alpha:
+                    return alpha
+                if score < beta:
+                    beta = score
+            return beta
 
     def alpha_beta_with_trace(self, board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool, quiescence: bool
                    ) -> tuple[float, chess.Move | None, list[chess.Move]]:
-        # only used for debugging, might not be synchronized with the actual alpha beta function used in the game
+        # NOTE: only used for debugging, might not be synchronized with the actual alpha beta function used in the game
         if depth == 0 or board.is_game_over():
             if quiescence:
-                return self.quiescence(board, alpha, beta), None, []
+                a = self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None, []
+                return a
+
             return self.evaluator.evaluate(board, depth), None, []
 
         best_move = None
@@ -223,8 +262,8 @@ class Agent:
                     break
             return min_score, best_move, best_line
 
-    def test_with_stack_trace(self, board: chess.Board, quiescence: bool = False):
-        score, move, line = self.alpha_beta_with_trace(board, 3, float('-inf'), float('inf'), board.turn == self.evaluator.engine_color, quiescence = quiescence)
+    def test_with_stack_trace(self, board: chess.Board, quiescence: bool = False, depth: int = 3):
+        score, move, line = self.alpha_beta_with_trace(board, depth, float('-inf'), float('inf'), board.turn == self.evaluator.engine_color, quiescence = quiescence)
         print(f"Score: {score}")
         print(f"Best Move: {move}")
         print(f"Principal Variation:")
