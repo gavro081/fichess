@@ -5,6 +5,9 @@ from engine.Eval import Eval
 from enum import Enum
 from collections import namedtuple
 
+from engine.consts import MATE_SCORE
+
+
 class NodeType(Enum):
     EXACT = 1
     LOWER_BOUND = 2
@@ -14,6 +17,8 @@ TTEntry = namedtuple('TTEntry', ['value', 'depth', 'flag', 'best_move'])
 
 # TODO
 MAX_QS_DEPTH = 6
+
+MAX_SEARCH_DEPTH = 4
 
 class Agent:
     def __init__(self, engine_color: chess.Color = chess.BLACK):
@@ -93,6 +98,12 @@ class Agent:
 
         best_move = None
         legal_moves = list(board.legal_moves)
+
+        if key in self.transposition_table:
+            _, _, _, tt_move = self.transposition_table[key]
+            if tt_move in legal_moves:
+                legal_moves.remove(tt_move)
+                legal_moves.insert(0, tt_move)
 
         move_scores = [(self.score_move(board, move, depth), move) for move in legal_moves]
         move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
@@ -219,9 +230,28 @@ class Agent:
                     beta = score
             return beta
 
+    def find_best_move(self, board: chess.Board, max_depth: int = MAX_SEARCH_DEPTH) -> tuple[chess.Move | None, float]:
+        best_move, best_score = None, 0
+        for depth in range(1, max_depth + 1):
+            score, move = self.alpha_beta(board, depth, float('-inf'), float('inf'), board.turn == self.evaluator.engine_color)
+            # if abs(score) > MATE_SCORE:
+            #     print("Mate found, stopping early.")
+            #     break
+            if move is not None:
+                best_move = move
+                best_score = score
+            print(f"Depth {depth} complete. Best move: {best_move}, Eval: {score}")
+        print(f"best move: {best_move}, best score: {best_score}")
+        return (best_move, best_score)
+    
+
+
+    
+    # -----------------------------------------------------------------------------------------------------------
+    # functions only for debugging
+    # -----------------------------------------------------------------------------------------------------------
     def alpha_beta_with_trace(self, board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool, quiescence: bool
                    ) -> tuple[float, chess.Move | None, list[chess.Move]]:
-        # NOTE: only used for debugging, might not be synchronized with the actual alpha beta function used in the game
         if depth == 0 or board.is_game_over():
             if quiescence:
                 a = self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None, []
