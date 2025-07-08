@@ -120,9 +120,9 @@ class Game:
         return piece.color == self.board.turn
 
     def _render_captured(self):
-        def draw_set(title, score, pieces, start_y):
+        def draw_set(title, score_text, pieces, start_y):
             base_x = WINDOW_SIZE + PADDING
-            title_text = self.small_font.render(f"{title} (+{score})", True, BLACK)
+            title_text = self.small_font.render(f"{title} {score_text}", True, BLACK)
             self.screen.blit(title_text, (base_x, start_y))
 
             for i, symbol in enumerate(pieces):
@@ -136,11 +136,21 @@ class Game:
                 y_pos = start_y + title_text.get_height() + 10 + row * (CAPTURED_IMG_SIZE + 5)
                 self.screen.blit(img, (x_pos, y_pos))
 
-        black_score = sum(self.piece_value_map.get(p.lower(), 0) for p in self.captured_by_black)
-        draw_set("Black's Captures", black_score, self.captured_by_black, PADDING)
+        black_material = sum(self.piece_value_map.get(p.lower(), 0) for p in self.captured_by_black)
+        white_material = sum(self.piece_value_map.get(p.lower(), 0) for p in self.captured_by_white)
 
-        white_score = sum(self.piece_value_map.get(p.lower(), 0) for p in self.captured_by_white)
-        draw_set("White's Captures", white_score, self.captured_by_white, PADDING + 200)
+        score_diff = white_material - black_material
+
+        white_score_text = ""
+        black_score_text = ""
+
+        if score_diff > 0:
+            white_score_text = f"+{score_diff}"
+        elif score_diff < 0:
+            black_score_text = f"{score_diff}"
+
+        draw_set("Black's Captures", black_score_text, self.captured_by_black, PADDING)
+        draw_set("White's Captures", white_score_text, self.captured_by_white, PADDING + 200)
 
     def render(self):
         turn_text = f"{'White' if self.board.turn == chess.WHITE else 'Black'}'s turn"
