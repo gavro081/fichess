@@ -1,5 +1,6 @@
+import random
+import time
 from collections import defaultdict
-
 import chess
 from engine.Eval import Eval
 from enum import Enum
@@ -219,6 +220,7 @@ class Agent:
 
         eval_depth = main_depth + qs_depth
 
+        self.counter += 1
         static_eval = self.evaluator.evaluate(board, eval_depth)
 
         if board.is_game_over() or qs_depth >= MAX_QS_DEPTH:
@@ -275,6 +277,8 @@ class Agent:
 
     def find_best_move(self, board: chess.Board, max_depth: int = MAX_SEARCH_DEPTH) -> tuple[chess.Move | None, float]:
         best_move, best_score = None, 0
+        self.counter = 0
+        start = time.perf_counter()
         for depth in range(1, max_depth + 1):
             score, move = self.alpha_beta(board, depth, float('-inf'), float('inf'), board.turn == self.evaluator.engine_color)
             # if abs(score) > MATE_SCORE:
@@ -283,7 +287,21 @@ class Agent:
             if move is not None:
                 best_move = move
                 best_score = score
-
+        end = time.perf_counter()
+        elapsed = end - start
+        self.counter = self.counter if self.counter > 0 else 1
+        print(f"Search completed in {elapsed:.2f} seconds. Total of {self.counter} nodes.")
+        print(f"{self.counter} nodes searched")
+        print(f"avg time per node {self.evaluator.total / self.counter}")
+        print(f"ps {self.evaluator.eval_ps / self.counter}")
+        print(f"board {self.evaluator.eval_board / self.counter}")
+        print(f"eval_dev {self.evaluator.eval_dev / self.counter}")
+        print(f"eval_king {self.evaluator.eval_king / self.counter}")
+        print(f"eval_pd {self.evaluator.eval_pd / self.counter}")
+        print(f"lm {self.evaluator.eval_lm / self.counter}")
+        print(f"cc {self.evaluator.eval_cc / self.counter}")
+        print(f"rf {self.evaluator.eval_rf / self.counter}")
+        print(f"pww {self.evaluator.eval_pww / self.counter}")
         return best_move, best_score
     
 
