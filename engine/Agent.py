@@ -24,7 +24,39 @@ class Agent:
         self.killer_moves: dict[int, list[chess.Move]] = defaultdict(list)
         self.history_heuristic = defaultdict(int)
         self.transposition_table: dict[int, TTEntry] = {}
-        self.position_history: set[int] = set()
+
+        random.seed(2025)
+        self.zobrist_piece = [[[random.getrandbits(64) for _ in range(64)] for _ in range(2)] for _ in range(6)]
+        self.zobrist_castling = [random.getrandbits(64) for _ in range(16)] # 4 bits: KQkq
+        self.zobrist_ep_file = [random.getrandbits(64) for _ in range(8)]
+        self.zobrist_turn = random.getrandbits(64)
+
+        self.counter = 0
+
+    def zobrist_hash(self, board: chess.Board) -> int:
+        # ref https://www.chessprogramming.org/Zobrist_Hashing
+        h = 0
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece:
+                piece_index = piece.piece_type - 1
+                color_index = 0 if piece.color == chess.WHITE else 1
+                h ^= self.zobrist_piece[piece_index][color_index][square]
+
+        castling_rights = 0
+        if board.has_kingside_castling_rights(chess.WHITE): castling_rights |= 1 << 3
+        if board.has_queenside_castling_rights(chess.WHITE): castling_rights |= 1 << 2
+        if board.has_kingside_castling_rights(chess.BLACK): castling_rights |= 1 << 1
+        if board.has_queenside_castling_rights(chess.BLACK): castling_rights |= 1 << 0
+
+        if board.ep_square is not None:
+            ep_file = chess.square_file(board.ep_square)
+            h ^= self.zobrist_ep_file[ep_file]
+
+        if board.turn == chess.BLACK:
+            h ^= self.zobrist_turn
+
+        return h
 
     def score_move(self, board: chess.Board, move: chess.Move, depth: int) -> int:
         score = 0
@@ -82,8 +114,8 @@ class Agent:
         if depth == 0 or board.is_game_over():
             return self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None
             # return self.evaluator.evaluate(board, depth), None
-        # TODO: use better hash
-        key = hash(board.fen())
+
+        key = self.zobrist_hash(board)
         alpha_original = alpha
 
         if key in self.transposition_table:
