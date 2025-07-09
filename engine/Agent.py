@@ -14,7 +14,7 @@ class NodeType(Enum):
 TTEntry = namedtuple('TTEntry', ['value', 'depth', 'flag', 'best_move'])
 
 # TODO
-MAX_QS_DEPTH = 5
+MAX_QS_DEPTH = 6
 
 MAX_SEARCH_DEPTH = 4
 
@@ -184,6 +184,7 @@ class Agent:
                            maximizing_player: bool) -> float:
         # ref https://www.chessprogramming.org/Quiescence_Search
         # implemented using minimax instead of negamax for consistency
+
         eval_depth = main_depth + qs_depth
 
         static_eval = self.evaluator.evaluate(board, eval_depth)
@@ -204,19 +205,10 @@ class Agent:
 
         moves = []
         for move in board.legal_moves:
-            if board.is_capture(move):
-                # only consider captures that don't lose material
-                captured = board.piece_at(move.to_square)
-                attacker = board.piece_at(move.from_square)
-                if captured and attacker:
-                    if self.evaluator.piece_scores[captured.piece_type] >= self.evaluator.piece_scores[
-                        attacker.piece_type] + 10:
-                        moves.append(move)
-                    elif board.gives_check(move):
-                        moves.append(move)
+            if board.is_capture(move) or move.promotion:
+                moves.append(move)
 
         if qs_depth < 3:
-            # only check for checks in depths lower than 3
             for move in board.legal_moves:
                 if board.gives_check(move) and move not in moves:
                     moves.append(move)
@@ -268,7 +260,8 @@ class Agent:
     # -----------------------------------------------------------------------------------------------------------
     # functions only for debugging
     # -----------------------------------------------------------------------------------------------------------
-    def alpha_beta_with_trace(self, board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool, quiescence: bool
+    def alpha_beta_with_trace(self, board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool,
+                                last_move_was_check: bool = False, quiescence: bool = True
                    ) -> tuple[float, chess.Move | None, list[chess.Move]]:
         if depth == 0 or board.is_game_over():
             if quiescence:
@@ -279,14 +272,29 @@ class Agent:
 
         best_move = None
         best_line: list[chess.Move] = []
-
         legal_moves = list(board.legal_moves)
+
+        move_scores = [(self.score_move(board, move, depth), move) for move in legal_moves]
+        move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
+        sorted_moves = [move for _, move in move_scores]
+
         if maximizing_player:
             max_score = float('-inf')
-            for move in legal_moves:
+            for move in sorted_moves:
+                is_check = board.gives_check(move)
+
+                if is_check:
+                    eval_before = self.evaluator.evaluate(board, depth)
+
                 board.push(move)
                 score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, not maximizing_player, quiescence)
                 board.pop()
+
+                if is_check and last_move_was_check:
+                    eval_gain = score - eval_before
+                    if eval_gain < 50:
+                        score -= 50
+
                 if score > max_score:
                     max_score = score
                     best_move = move
@@ -298,9 +306,20 @@ class Agent:
         else:
             min_score = float('inf')
             for move in legal_moves:
+                is_check = board.gives_check(move)
+
+                if is_check:
+                    eval_before = self.evaluator.evaluate(board, depth)
+
                 board.push(move)
                 score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, not maximizing_player, quiescence)
                 board.pop()
+
+                if is_check and last_move_was_check:
+                    eval_gain = eval_before - score
+                    if eval_gain < 50:
+                        score += 50
+
                 if score < min_score:
                     min_score = score
                     best_move = move
@@ -310,8 +329,8 @@ class Agent:
                     break
             return min_score, best_move, best_line
 
-    def test_with_stack_trace(self, board: chess.Board, quiescence: bool = False, depth: int = 3):
-        score, move, line = self.alpha_beta_with_trace(board, depth, float('-inf'), float('inf'), board.turn == self.evaluator.engine_color, quiescence = quiescence)
+    def test_with_stack_trace(self, board: chess.Board, quiescence: bool = True, depth: int = 3):
+        score, move, line = self.alpha_beta_with_trace(board, 4, float('-inf'), float('inf'), True, quiescence = quiescence)
         print(f"Score: {score}")
         print(f"Best Move: {move}")
         print(f"Principal Variation:")
