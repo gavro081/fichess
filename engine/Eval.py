@@ -4,6 +4,14 @@ from engine import consts
 
 class EvalHelper:
     @staticmethod
+    def is_endgame(board: chess.Board) -> bool:
+        # not the most accurate way to label endgames but it works
+        total_pieces = len(board.piece_map())
+        queens = len(board.pieces(chess.QUEEN, chess.WHITE)) + len(board.pieces(chess.QUEEN, chess.BLACK))
+
+        return total_pieces <= 10 or queens == 0
+
+    @staticmethod
     def king_is_castled(board: chess.Board, color: chess.Color) -> bool:
         king_square = board.king(color)
         if (color == chess.WHITE and king_square in [chess.G1, chess.C1]) or \
@@ -110,7 +118,7 @@ class Eval:
         score += len(list(board_.legal_moves))
         board_.turn = not board_.turn
         score -= len(list(board_.legal_moves))
-        return score * 2
+        return score * 2 if board.turn == self.engine_color else -score
 
     def evaluate_pawn_structure(self, board: chess.Board, color: chess.Color) -> int:
         # TODO: clean up
@@ -280,8 +288,8 @@ class Eval:
             material_score += sign * self.piece_scores[piece_type]
 
             # TODO: find better weights
-            mg_score += sign * self.mg_tables[piece_type][index] * 0.5
-            eg_score += sign * self.eg_tables[piece_type][index] * 0.5
+            mg_score += sign * self.mg_tables[piece_type][index] * 0.4
+            eg_score += sign * self.eg_tables[piece_type][index] * 0.4
 
             phase += self.phase_weights[piece_type]
 
@@ -291,6 +299,55 @@ class Eval:
         # print(f"Score: {score}, Material Score: {material_score}")
         total_score = score + material_score
         return total_score
+
+    def evaluate_progress_when_winning(self, board: chess.Board, color: chess.Color) -> int:
+
+        engine_material = 0
+        opponent_material = 0
+
+        for piece in board.piece_map().values():
+            value = self.piece_scores[piece.piece_type]
+            if piece.color == self.engine_color:
+                engine_material += value
+            else:
+                opponent_material += value
+
+        material_advantage = engine_material - opponent_material
+
+        if material_advantage < 330:
+            return 0
+
+        score = 0
+
+        # encourage king to move towards center
+        if self.helper.is_endgame(board):
+            king_square = board.king(color)
+            if king_square:
+                king_file = chess.square_file(king_square)
+                king_rank = chess.square_rank(king_square)
+                center_distance = abs(king_file - 3.5) + abs(king_rank - 3.5)
+                score += int((7 - center_distance) * 10)
+
+        # advance pawns
+        pawns = board.pieces(chess.PAWN, color)
+        for pawn_square in pawns:
+            rank = chess.square_rank(pawn_square)
+            if color == chess.WHITE:
+                advancement_bonus = rank * 5
+            else:
+                advancement_bonus = (7 - rank) * 5
+            score += advancement_bonus
+
+        # move pieces closer to opponent's king
+        opponent_king = board.king(not color)
+        if opponent_king:
+            for piece_type in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
+                pieces = board.pieces(piece_type, color)
+                for piece_square in pieces:
+                    distance = chess.square_distance(piece_square, opponent_king)
+                    score += (8 - distance) * 3
+
+        return score
 
     def evaluate(self, board: chess.Board, depth: int) -> float:
         side_to_evaluate = self.engine_color
@@ -312,6 +369,7 @@ class Eval:
         m = self.evaluate_legal_moves(board)
         cc = self.evaluate_center_control(board, side_to_evaluate)
         r = self.evaluate_rook_files(board, side_to_evaluate)
-        score = e + c + d + k + p + m + cc + r
+        w = self.evaluate_progress_when_winning(board, side_to_evaluate)
+        score = e + c + d + k + p + m + cc + r + w
 
         return score

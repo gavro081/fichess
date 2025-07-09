@@ -24,12 +24,12 @@ class TestEval(unittest.TestCase):
         score_black = self.evaluator.evaluate_pawn_structure(board, chess.BLACK)
         score_white = self.evaluator.evaluate_pawn_structure(board, chess.WHITE)
         self.assertEqual(score_black, score_white, "the pawn related penalties are not equal to the benefits for both sides.")
-        self.assertEqual(score_black, 0, "the score for the pawn structure is not 0 in the start")
+        self.assertEqual(score_black, 0, "the score for the pawn structure is not 0 in the start.")
 
     def test_pawn_structure2(self):
         board = chess.Board(fen="8/5k2/3p4/1P6/8/8/3P4/4K3 w - - 0 1")
         score_white = self.evaluator.evaluate_pawn_structure(board, chess.WHITE)
-        self.assertGreater(score_white, 0, "white has an isolated, passed pawn; boost is not greater then the penalty")
+        self.assertGreater(score_white, 0, "white has an isolated, passed pawn; boost is not greater then the penalty.")
 
     def test_pawn_structure3(self):
         board = chess.Board(fen="8/5k2/3p4/8/3P4/3p4/8/4K3 w - - 0 1")
@@ -62,7 +62,7 @@ class TestEval(unittest.TestCase):
     def test_development_2(self):
         board = chess.Board(fen="r1bqkbr1/ppppp1pp/2n2p1n/8/7N/2NPP3/PPP2PPP/R1BQKB1R w KQkq - 0 1")
         score = self.evaluator.evaluate_development(board, chess.WHITE)
-        self.assertGreater(score, 0, "rook g8 is not being penalized")
+        self.assertGreater(score, 0, "rook g8 is not being penalized.")
 
     def test_rook_files(self):
         board = chess.Board(fen="r1bqkb2/pppppp1p/7r/n7/8/N7/P1PP1P2/R2QK2R w - - 0 1")
@@ -72,4 +72,20 @@ class TestEval(unittest.TestCase):
     def test_center_control(self):
         board = chess.Board(fen="r1bqkb2/ppp1pp1p/8/n2p3r/8/3Q1N2/P1PP1P2/R3K2R w - - 0 1")
         score = self.evaluator.evaluate_center_control(board, chess.WHITE)
-        self.assertGreater(score, 0, "center control advantage isn't evaluated properly")
+        self.assertGreater(score, 0, "center control advantage isn't evaluated properly.")
+
+    def test_winning_progress(self):
+        board = chess.Board(fen="2p3k1/3p4/4b3/8/8/2PP1N1P/1K6/3R4 w - - 0 1")
+        score1 = self.evaluator.evaluate_progress_when_winning(board, chess.WHITE)
+        board.push_uci("d3d4")
+        board.turn = chess.WHITE
+        score2 = self.evaluator.evaluate_progress_when_winning(board, chess.WHITE)
+        self.assertGreater(score2, score1, "pawn advancement isn't evaluated properly")
+        board.push_uci("f3e5")
+        board.push_uci("e6f5") # to free up king move towards center for later
+        score3 = self.evaluator.evaluate_progress_when_winning(board, chess.WHITE)
+        self.assertGreater(score3, score2, "pieces closer to king aren't evaluated properly.")
+        board.push_uci("b2b3")
+        board.turn = chess.WHITE
+        score4 = self.evaluator.evaluate_progress_when_winning(board, chess.WHITE)
+        self.assertGreater(score4, score3, "king closer to center isn't evaluated properly.")

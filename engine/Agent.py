@@ -5,8 +5,6 @@ from engine.Eval import Eval
 from enum import Enum
 from collections import namedtuple
 
-from engine.consts import MATE_SCORE
-
 
 class NodeType(Enum):
     EXACT = 1
@@ -16,7 +14,7 @@ class NodeType(Enum):
 TTEntry = namedtuple('TTEntry', ['value', 'depth', 'flag', 'best_move'])
 
 # TODO
-MAX_QS_DEPTH = 6
+MAX_QS_DEPTH = 5
 
 MAX_SEARCH_DEPTH = 4
 
@@ -26,6 +24,7 @@ class Agent:
         self.killer_moves: dict[int, list[chess.Move]] = defaultdict(list)
         self.history_heuristic = defaultdict(int)
         self.transposition_table: dict[int, TTEntry] = {}
+        self.position_history: set[int] = set()
 
     def score_move(self, board: chess.Board, move: chess.Move, depth: int) -> int:
         score = 0
@@ -47,11 +46,11 @@ class Agent:
             score += 9_000 + self.evaluator.piece_scores[move.promotion]
 
         # history heuristic
-        score += self.history_heuristic[(move.from_square, move.to_square)] // 10
+        # score += self.history_heuristic[(move.from_square, move.to_square)] // 10
 
         # checks
         if board.gives_check(move):
-            score += 500
+            score += 100
 
         # castling
         if board.is_castling(move):
@@ -78,6 +77,7 @@ class Agent:
             alpha: float,
             beta: float,
             maximizing_player: bool,
+            last_move_was_check: bool = False
             ) -> tuple[float, chess.Move | None]:
         if depth == 0 or board.is_game_over():
             return self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None
@@ -112,19 +112,29 @@ class Agent:
         if maximizing_player:
             max_score = float('-inf')
             for move in sorted_moves:
+                is_check = board.gives_check(move)
+
+                if is_check:
+                    eval_before = self.evaluator.evaluate(board, depth)
+
                 board.push(move)
-                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, False)
+                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, False, is_check)
                 board.pop()
+
+                if is_check and last_move_was_check:
+                    eval_gain = score - eval_before
+                    if eval_gain < 50:
+                        score -= 50
+
                 if score > max_score:
                     best_move = move
                     max_score = score
                 alpha = max(alpha, score)
                 if beta <= alpha:
-                    if sorted:
-                        if depth not in self.killer_moves:
-                            self.killer_moves[depth] = []
-                        if move not in self.killer_moves[depth]:
-                            self.killer_moves[depth].append(move)
+                    if depth not in self.killer_moves:
+                        self.killer_moves[depth] = []
+                    if move not in self.killer_moves[depth]:
+                        self.killer_moves[depth].append(move)
                     break
             if max_score <= alpha_original:
                 flag = NodeType.UPPER_BOUND
@@ -137,21 +147,30 @@ class Agent:
         else:
             min_eval = float('inf')
             for move in legal_moves:
+                is_check = board.gives_check(move)
+
+                if is_check:
+                    eval_before = self.evaluator.evaluate(board, depth)
+
                 board.push(move)
-                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, True)
+                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, True, is_check)
                 board.pop()
+
+                if is_check and last_move_was_check:
+                    eval_gain = eval_before - score
+                    if eval_gain < 50:
+                        score += 50
+
                 if score < min_eval:
                     best_move = move
                     min_eval = score
                 beta = min(beta, score)
                 if beta <= alpha:
-                    if sorted:
-                        if depth not in self.killer_moves:
-                            self.killer_moves[depth] = []
-                        if move not in self.killer_moves[depth]:
-                            self.killer_moves[depth].append(move)
+                    if depth not in self.killer_moves:
+                        self.killer_moves[depth] = []
+                    if move not in self.killer_moves[depth]:
+                        self.killer_moves[depth].append(move)
                     break
-            if not sorted: return min_eval, best_move
             if min_eval <= alpha_original:
                 flag = NodeType.UPPER_BOUND
             elif min_eval >= beta:
