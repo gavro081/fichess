@@ -1,8 +1,6 @@
 import unittest
 import chess
 from chess import STARTING_FEN
-import chess.engine
-
 from engine.Agent import Eval
 
 
@@ -43,7 +41,7 @@ class TestEval(unittest.TestCase):
         white_pawns = board.pieces(chess.PAWN, chess.WHITE)
         black_pawns = board.pieces(chess.PAWN, chess.BLACK)
         score_white = self.evaluator.evaluate_pawn_structure(chess.WHITE, white_pawns, black_pawns)
-        # self.assertLess(score_white, 0, "black has a passed pawn, white's should be losing.")
+        self.assertLess(score_white, 0, "black has a passed pawn, white's should be losing.")
 
     def test_king_safety_helper(self):
         board = chess.Board(fen="rnbq1bnr/ppppkppp/8/4p3/8/2NP4/PPP1PPPP/R1BQKBNR b KQ - 0 1")

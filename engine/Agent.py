@@ -125,11 +125,6 @@ class Agent:
                 score += 500
             else:
                 score += see
-            # captured = board.piece_at(move.to_square)
-            # attacker = board.piece_at(move.from_square)
-            # if captured and attacker:
-            #     score += 10_000 + (self.evaluator.piece_scores[captured.piece_type] -
-            #                        self.evaluator.piece_scores[attacker.piece_type])
 
         if move.promotion:
             if move.promotion == chess.QUEEN:
@@ -194,19 +189,10 @@ class Agent:
         if maximizing_player:
             max_score = float('-inf')
             for move in sorted_moves:
-                # is_check = board.gives_check(move)
-
-                # if is_check:
-                #     eval_before = self.evaluator.evaluate(board, depth)
 
                 board.push(move)
                 score, _ = self.alpha_beta(board, depth - 1, alpha, beta, False)
                 board.pop()
-
-                # if is_check and last_move_was_check:
-                #     eval_gain = score - eval_before
-                #     if eval_gain < 50:
-                #         score -= 50
 
                 if score > max_score:
                     best_move = move
@@ -229,19 +215,10 @@ class Agent:
         else:
             min_eval = float('inf')
             for move in legal_moves:
-                # is_check = board.gives_check(move)
-
-                # if is_check:
-                #     eval_before = self.evaluator.evaluate(board, depth)
 
                 board.push(move)
                 score, _ = self.alpha_beta(board, depth - 1, alpha, beta, True)
                 board.pop()
-
-                # if is_check and last_move_was_check:
-                #     eval_gain = eval_before - score
-                #     if eval_gain < 50:
-                #         score += 50
 
                 if score < min_eval:
                     best_move = move
@@ -333,9 +310,11 @@ class Agent:
             start = time.perf_counter()
         for depth in range(1, max_depth + 1):
             score, move = self.alpha_beta(board, depth, float('-inf'), float('inf'), True)
+            
             # if abs(score) > MATE_SCORE:
             #     print("Mate found, stopping early.")
             #     break
+            
             if move is not None:
                 best_move = move
                 best_score = score
@@ -387,19 +366,10 @@ class Agent:
         if maximizing_player:
             max_score = float('-inf')
             for move in sorted_moves:
-                # is_check = board.gives_check(move)
-
-                # if is_check:
-                #     eval_before = self.evaluator.evaluate(board, depth)
 
                 board.push(move)
                 score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, False, quiescence)
                 board.pop()
-
-                # if is_check and last_move_was_check:
-                #     eval_gain = score - eval_before
-                #     if eval_gain < 50:
-                #         score -= 50
 
                 if score > max_score:
                     max_score = score
@@ -412,19 +382,10 @@ class Agent:
         else:
             min_score = float('inf')
             for move in legal_moves:
-                # is_check = board.gives_check(move)
-
-                # if is_check:
-                #     eval_before = self.evaluator.evaluate(board, depth)
 
                 board.push(move)
                 score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, True, quiescence)
                 board.pop()
-
-                # if is_check and last_move_was_check:
-                #     eval_gain = eval_before - score
-                #     if eval_gain < 50:
-                #         score += 50
 
                 if score < min_score:
                     min_score = score

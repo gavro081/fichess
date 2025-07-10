@@ -242,7 +242,6 @@ class Game:
                 continue
 
             if self.board.turn == engine_color:
-                # best_move = agent.alpha_beta(self.board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
                 best_move, best_score = agent.find_best_move(self.board)
                 self.engine_score = best_score
                 if best_move:

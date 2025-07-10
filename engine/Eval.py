@@ -28,9 +28,6 @@ class EvalHelper:
 
         king_file = chess.square_file(king_square)
 
-        # TODO:
-        # this makes it better for king to castle
-        # test if it efficient, if not remove it or change logic
         if king_file < 2:
             pawn_files = [0, 1, 2]  # a, b, c files
         elif king_file > 5:
@@ -66,7 +63,7 @@ class EvalHelper:
 
 class Eval:
     def __init__(self, engine_color: chess.Color = chess.WHITE):
-        self.max_depth = 3 # not used rn
+        # self.max_depth = 3 
         self.engine_color = engine_color
         self.mg_tables = consts.MG_TABLES
         self.eg_tables = consts.EG_TABLES
@@ -105,9 +102,9 @@ class Eval:
             for rook_square in board.pieces(chess.ROOK, color_):
                 file = chess.square_file(rook_square)
                 if pawn_files[file]['white'] == 0 and pawn_files[file]['black'] == 0:
-                    score += 20 * sign  # Open file
+                    score += 20 * sign # open
                 elif pawn_files[file][chess.COLOR_NAMES[color_]] == 0:
-                    score += 10 * sign  # Semi-open file
+                    score += 10 * sign # semi open
 
         return score
 
@@ -359,12 +356,14 @@ class Eval:
                 else consts.MATE_SCORE + depth
 
         if board.is_game_over():
-            # if the game over and there is no checkmate then it must be a draw
+            # if the game is over and there is no checkmate then it must be a draw
             return 0
 
         piece_map = board.piece_map()
         white_pawns = board.pieces(chess.PAWN, chess.WHITE)
         black_pawns = board.pieces(chess.PAWN, chess.BLACK)
+        
+        # TODO: lol
 
         off_start = time.perf_counter()
         e = self.evaluate_board(piece_map, side_to_evaluate) if board.fullmove_number > 10 else self.evaluate_material(piece_map, side_to_evaluate)
@@ -382,7 +381,6 @@ class Eval:
         p = self.evaluate_pawn_development(board, side_to_evaluate, white_pawns, black_pawns)
         end = time.perf_counter()
         self.eval_pd += end - start
-        m = 0 # self.evaluate_legal_moves(board)
         start = time.perf_counter()
         self.eval_lm += start - end
         cc = self.evaluate_center_control(board, side_to_evaluate)
@@ -395,6 +393,6 @@ class Eval:
         end = time.perf_counter()
         self.eval_pww += end - start
         self.total += end - off_start
-        score = e + c + d + k + p + m + cc + r + w
+        score = e + c + d + k + p + cc + r + w
 
         return score
