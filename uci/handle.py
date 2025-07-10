@@ -51,4 +51,7 @@ def handle(board: chess.Board, message: str):
     if message[0:2] == "go":
         agent = Agent(engine_color=board.turn)
         move = agent.find_best_move(board, 4)[0]
-        print(f"bestmove {move.uci()}")
+        if move:
+            print(f"bestmove {move.uci()}")
+        else:
+            print("no move")

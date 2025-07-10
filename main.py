@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
 import chess
-from uci.handle import handle
-
-def main():
-    board = chess.Board()
-    while True:
-        message = input()
-        handle(board, message)
+from chess import STARTING_FEN
+from ui.Game import Game
 
 if __name__ == '__main__':
-    main()
+    game = Game(fen=STARTING_FEN)
+    # NOTE:
+    # if playing with black or a starting fen where it is the engine's turn
+    # wait ~5s before making the very first move (due to ui bug)
+    game.start_game(engine_color=chess.BLACK, with_fen=False)

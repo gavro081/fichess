@@ -2,7 +2,6 @@ import unittest
 import chess
 from chess import STARTING_FEN
 import chess.engine
-import time
 
 from engine.Agent import Agent
 
