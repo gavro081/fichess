@@ -288,16 +288,13 @@ class Eval:
             sign = 1 if piece_color == color else -1
             material_score += sign * self.piece_scores[piece_type]
 
-            # TODO: find better weights
-            mg_score += sign * self.mg_tables[piece_type][index] * 0.4
-            eg_score += sign * self.eg_tables[piece_type][index] * 0.4
+            mg_score += sign * self.mg_tables[piece_type][index] * 0.2
+            eg_score += sign * self.eg_tables[piece_type][index] * 0.2
 
             phase += self.phase_weights[piece_type]
 
         phase = min(phase, self.total_phase)
         score = ((phase * mg_score + (24 - phase) * eg_score) / self.total_phase)
-        # print(f"Phase: {phase}, MG Score: {mg_score}, EG Score: {eg_score}, Material Score: {material_score}")
-        # print(f"Score: {score}, Material Score: {material_score}")
         total_score = score + material_score
         return total_score
 
@@ -361,40 +358,41 @@ class Eval:
             return -consts.MATE_SCORE + depth if board.turn == side_to_evaluate \
                 else consts.MATE_SCORE + depth
 
-        if board.is_stalemate() or board.is_insufficient_material() or board.is_seventyfive_moves() or board.is_fivefold_repetition():
+        if board.is_game_over():
+            # if the game over and there is no checkmate then it must be a draw
             return 0
 
         piece_map = board.piece_map()
         white_pawns = board.pieces(chess.PAWN, chess.WHITE)
         black_pawns = board.pieces(chess.PAWN, chess.BLACK)
 
-        off_start = time.time()
+        off_start = time.perf_counter()
         e = self.evaluate_board(piece_map, side_to_evaluate) if board.fullmove_number > 10 else self.evaluate_material(piece_map, side_to_evaluate)
-        end = time.time()
+        end = time.perf_counter()
         self.eval_board += end - off_start
         c = self.evaluate_pawn_structure(side_to_evaluate, white_pawns, black_pawns)
-        start = time.time()
+        start = time.perf_counter()
         self.eval_ps += start - end
         d = self.evaluate_development(board, side_to_evaluate)
-        end = time.time()
+        end = time.perf_counter()
         self.eval_dev += end - start
         k = self.evaluate_king_safety(board, side_to_evaluate)
-        start = time.time()
+        start = time.perf_counter()
         self.eval_king += start - end
         p = self.evaluate_pawn_development(board, side_to_evaluate, white_pawns, black_pawns)
-        end = time.time()
+        end = time.perf_counter()
         self.eval_pd += end - start
         m = 0 # self.evaluate_legal_moves(board)
-        start = time.time()
+        start = time.perf_counter()
         self.eval_lm += start - end
         cc = self.evaluate_center_control(board, side_to_evaluate)
-        end = time.time()
+        end = time.perf_counter()
         self.eval_cc += end - start
         r = self.evaluate_rook_files(board, side_to_evaluate, white_pawns, black_pawns)
-        start = time.time()
+        start = time.perf_counter()
         self.eval_rf += start - end
         w = self.evaluate_progress_when_winning(board, piece_map, side_to_evaluate)
-        end = time.time()
+        end = time.perf_counter()
         self.eval_pww += end - start
         self.total += end - off_start
         score = e + c + d + k + p + m + cc + r + w

@@ -59,41 +59,94 @@ class Agent:
 
         return h
 
+    def see_capture(self, board: chess.Board, move: chess.Move) -> int:
+        # see - static exchange evaluation
+        # ref https://www.chessprogramming.org/Static_Exchange_Evaluation
+        if not board.is_capture(move):
+            return 0
+
+        victim = board.piece_at(move.to_square)
+        if not victim:
+            return 0
+
+        board.push(move)
+
+        target_square = move.to_square
+        attackers = board.attackers(board.turn, target_square)
+
+        if not attackers:
+            board.pop()
+            return self.evaluator.piece_scores[victim.piece_type]
+
+        min_attacker_value = float('inf')
+        min_attacker_square = None
+
+        for attacker_square in attackers:
+            piece = board.piece_at(attacker_square)
+            if piece and self.evaluator.piece_scores[piece.piece_type] < min_attacker_value:
+                min_attacker_value = self.evaluator.piece_scores[piece.piece_type]
+                min_attacker_square = attacker_square
+
+        board.pop()
+
+        if min_attacker_square is None:
+            return self.evaluator.piece_scores[victim.piece_type]
+
+        recapture_move = chess.Move(min_attacker_square, target_square)
+        if recapture_move in board.legal_moves:
+            return self.evaluator.piece_scores[victim.piece_type] - self.see_capture(board, recapture_move)
+        else:
+            return self.evaluator.piece_scores[victim.piece_type]
+
+    def score_moves(self, board: chess.Board, moves: list[chess.Move], depth: int, maximizing_player: bool) \
+        -> list[chess.Move]:
+        moves_ = []
+        for move in moves:
+            score = self.score_move(board, move, depth)
+            moves_.append((move, score))
+
+        moves_.sort(key=lambda x: x[1], reverse=maximizing_player)
+        sorted_moves = [move for move, _ in moves_]
+        return sorted_moves
+
+
     def score_move(self, board: chess.Board, move: chess.Move, depth: int) -> int:
         score = 0
 
         # killer moves
         if move in self.killer_moves.get(depth, []):
-            return 8_000
+            return 800
 
         # MVV-LVA
         if board.is_capture(move):
-            captured = board.piece_at(move.to_square)
-            attacker = board.piece_at(move.from_square)
-            if captured and attacker:
-                score += 10_000 + (self.evaluator.piece_scores[captured.piece_type] -
-                                   self.evaluator.piece_scores[attacker.piece_type])
+            see = self.see_capture(board, move)
+            if see > 0:
+                score += 1000 + see
+            elif see == 0:
+                score += 500
+            else:
+                score += see
+            # captured = board.piece_at(move.to_square)
+            # attacker = board.piece_at(move.from_square)
+            # if captured and attacker:
+            #     score += 10_000 + (self.evaluator.piece_scores[captured.piece_type] -
+            #                        self.evaluator.piece_scores[attacker.piece_type])
 
-        # promotion
         if move.promotion:
-            score += 9_000 + self.evaluator.piece_scores[move.promotion]
+            if move.promotion == chess.QUEEN:
+                score += 900
+            else:
+                score += 200
 
-        # history heuristic
-        # score += self.history_heuristic[(move.from_square, move.to_square)] // 10
-
-        # checks
         if board.gives_check(move):
-            score += 100
+            score += 120
 
-        # castling
         if board.is_castling(move):
             score += 200
 
-        # center control
         if move.to_square in {chess.D4, chess.E4, chess.D5, chess.E5}:
             score += 100
 
-        # development (early game)
         if board.fullmove_number <= 10:
             piece = board.piece_at(move.from_square)
             if piece and piece.piece_type in [chess.KNIGHT, chess.BISHOP]:
@@ -138,9 +191,7 @@ class Agent:
                 legal_moves.remove(tt_move)
                 legal_moves.insert(0, tt_move)
 
-        move_scores = [(self.score_move(board, move, depth), move) for move in legal_moves]
-        move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
-        sorted_moves = [move for _, move in move_scores]
+        sorted_moves = self.score_moves(board, legal_moves, depth, maximizing_player)
 
         if maximizing_player:
             max_score = float('-inf')
@@ -217,7 +268,6 @@ class Agent:
                            maximizing_player: bool) -> float:
         # ref https://www.chessprogramming.org/Quiescence_Search
         # implemented using minimax instead of negamax for consistency
-
         eval_depth = main_depth + qs_depth
 
         self.counter += 1
@@ -238,19 +288,22 @@ class Agent:
                 beta = static_eval
 
         moves = []
+        check_move_ctr = 0
         for move in board.legal_moves:
-            if board.is_capture(move) or move.promotion:
+            if board.is_capture(move) or (move.promotion and move.promotion == chess.QUEEN):
+                moves.append(move)
+            elif qs_depth < 3 and check_move_ctr < 4 and board.gives_check(move):
+                check_move_ctr += 1
                 moves.append(move)
 
-        if qs_depth < 3:
-            for move in board.legal_moves:
-                if board.gives_check(move) and move not in moves:
-                    moves.append(move)
+        sorted_moves = self.score_moves(board, moves, eval_depth, maximizing_player)
 
-        if len(moves) > 8:
-            move_scores = [(self.score_move(board, move, eval_depth), move) for move in moves]
-            move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
-            moves = [move for _, move in move_scores[:8]]
+        if qs_depth >= 3:
+            moves = sorted_moves[:4]
+        elif qs_depth >= 2:
+            moves = sorted_moves[:6]
+        else:
+            moves = sorted_moves[:8]
 
         if maximizing_player:
             for move in moves:
@@ -275,33 +328,35 @@ class Agent:
                     beta = score
             return beta
 
-    def find_best_move(self, board: chess.Board, max_depth: int = MAX_SEARCH_DEPTH) -> tuple[chess.Move | None, float]:
+    def find_best_move(self, board: chess.Board, max_depth: int = MAX_SEARCH_DEPTH, debug = False) -> tuple[chess.Move | None, float]:
         best_move, best_score = None, 0
-        self.counter = 0
-        start = time.perf_counter()
+        if debug:
+            self.counter = 0
+            start = time.perf_counter()
         for depth in range(1, max_depth + 1):
-            score, move = self.alpha_beta(board, depth, float('-inf'), float('inf'), board.turn == self.evaluator.engine_color)
+            score, move = self.alpha_beta(board, depth, float('-inf'), float('inf'), True)
             # if abs(score) > MATE_SCORE:
             #     print("Mate found, stopping early.")
             #     break
             if move is not None:
                 best_move = move
                 best_score = score
-        end = time.perf_counter()
-        elapsed = end - start
-        self.counter = self.counter if self.counter > 0 else 1
-        print(f"Search completed in {elapsed:.2f} seconds. Total of {self.counter} nodes.")
-        print(f"{self.counter} nodes searched")
-        print(f"avg time per node {self.evaluator.total / self.counter}")
-        print(f"ps {self.evaluator.eval_ps / self.counter}")
-        print(f"board {self.evaluator.eval_board / self.counter}")
-        print(f"eval_dev {self.evaluator.eval_dev / self.counter}")
-        print(f"eval_king {self.evaluator.eval_king / self.counter}")
-        print(f"eval_pd {self.evaluator.eval_pd / self.counter}")
-        print(f"lm {self.evaluator.eval_lm / self.counter}")
-        print(f"cc {self.evaluator.eval_cc / self.counter}")
-        print(f"rf {self.evaluator.eval_rf / self.counter}")
-        print(f"pww {self.evaluator.eval_pww / self.counter}")
+        if debug:
+            end = time.perf_counter()
+            elapsed = end - start
+            self.counter = self.counter if self.counter > 0 else 1
+            print(f"Search completed in {elapsed:.2f} seconds. Total of {self.counter} nodes.")
+            print(f"{self.counter} nodes searched")
+            print(f"avg time per node {self.evaluator.total / self.counter}")
+            print(f"ps {self.evaluator.eval_ps / self.counter}")
+            print(f"board {self.evaluator.eval_board / self.counter}")
+            print(f"eval_dev {self.evaluator.eval_dev / self.counter}")
+            print(f"eval_king {self.evaluator.eval_king / self.counter}")
+            print(f"eval_pd {self.evaluator.eval_pd / self.counter}")
+            print(f"lm {self.evaluator.eval_lm / self.counter}")
+            print(f"cc {self.evaluator.eval_cc / self.counter}")
+            print(f"rf {self.evaluator.eval_rf / self.counter}")
+            print(f"pww {self.evaluator.eval_pww / self.counter}")
         return best_move, best_score
     
 
@@ -315,8 +370,7 @@ class Agent:
                    ) -> tuple[float, chess.Move | None, list[chess.Move]]:
         if depth == 0 or board.is_game_over():
             if quiescence:
-                a = self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None, []
-                return a
+                return self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None, []
 
             return self.evaluator.evaluate(board, depth), None, []
 
@@ -324,9 +378,7 @@ class Agent:
         best_line: list[chess.Move] = []
         legal_moves = list(board.legal_moves)
 
-        move_scores = [(self.score_move(board, move, depth), move) for move in legal_moves]
-        move_scores.sort(key=lambda x: x[0], reverse=maximizing_player)
-        sorted_moves = [move for _, move in move_scores]
+        sorted_moves = self.score_moves(board, legal_moves, depth, maximizing_player)
 
         if maximizing_player:
             max_score = float('-inf')
@@ -337,7 +389,7 @@ class Agent:
                     eval_before = self.evaluator.evaluate(board, depth)
 
                 board.push(move)
-                score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, not maximizing_player, quiescence)
+                score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, False, quiescence)
                 board.pop()
 
                 if is_check and last_move_was_check:
@@ -362,7 +414,7 @@ class Agent:
                     eval_before = self.evaluator.evaluate(board, depth)
 
                 board.push(move)
-                score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, not maximizing_player, quiescence)
+                score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, True, quiescence)
                 board.pop()
 
                 if is_check and last_move_was_check:

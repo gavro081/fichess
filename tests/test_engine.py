@@ -9,17 +9,6 @@ from engine.Agent import Agent
 class TestEngine(unittest.TestCase):
     agent_black = Agent(engine_color=chess.BLACK)
 
-    # def test_is_castling(self):
-    #     # za ovoj board, ne castlenuva
-    #     board = chess.Board(fen="r3k2r/pppppppp/3n4/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")
-    #     # za ovoj board, castlenuva
-    #     # board = chess.Board(fen="r3k2r/pppppppp/8/8/2n5/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")
-    #     is_maximizing_player = board.turn == self.agent_black.evaluator.engine_color
-    #     move = self.agent_black.alpha_beta(board, 3, alpha=float('-inf'), beta=float('inf'),
-    #                                        maximizing_player=is_maximizing_player)[1]
-    #     print(move)
-    #     self.assertIsNotNone(move, "Expected a castling move, but got None")
-
     def test_engine_1(self):
         board = chess.Board(fen=STARTING_FEN)
         board.push_uci("d2d4")
@@ -78,16 +67,14 @@ class TestEngine(unittest.TestCase):
         best_move2 = agent.alpha_beta(board, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)[1]
         self.assertEqual(best_move1, best_move2, "quiescence gives wrong result on either odd or even depths")
 
-    # def test_engine_move_sorting(self):
-    #     board = chess.Board(fen="r2qk2r/p1p2ppp/1pb1pn2/2bp4/4P3/1PNB1N2/PBPPQPPP/R4RK1 b - - 0 1")
+    # def test123(self):
+    #     # board = chess.Board(fen="r1k1r3/1p3pp1/2pP1n1p/4B3/p3b3/2PR1N2/PP3PPP/R5K1 w - - 5 25")
+    #     board = chess.Board(fen="r2r2k1/ppp2ppp/2n5/4P3/2P5/5BRn/P1PB3P/2K1R3 b - - 2 19")
     #     agent = Agent(engine_color=chess.BLACK)
-    #     # Test without sorting
-    #     start_time = time.time()
-    #     _, move = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color),
-    #                                sorted=False)
-    #     end_time = time.time()
-    #     print(f"Time without sorting: {end_time - start_time:.4f} seconds, move: {move}")
-    #     start_time = time.time()
-    #     _, move = agent.alpha_beta(board, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player = (board.turn == agent.evaluator.engine_color), sorted=True)
-    #     end_time = time.time()
-    #     print(f"Time with sorting: {end_time - start_time:.4f} seconds, move: {move}")
+    #     # with chess.engine.SimpleEngine.popen_uci("/opt/homebrew/bin/stockfish") as engine:
+    #     #     result = engine.play(board, chess.engine.Limit(time=.4))
+    #     #     print(result)
+    #     move, score = agent.find_best_move(board, max_depth=4)
+    #     print(move)
+    #     print(score)
+    #     # agent.test_with_stack_trace(board)
