@@ -321,19 +321,8 @@ class Agent:
         if debug:
             end = time.perf_counter()
             elapsed = end - start
-            self.counter = self.counter if self.counter > 0 else 1
-            print(f"Search completed in {elapsed:.2f} seconds. Total of {self.counter} nodes.")
-            print(f"{self.counter} nodes searched")
-            print(f"avg time per node {self.evaluator.total / self.counter}")
-            print(f"ps {self.evaluator.eval_ps / self.counter}")
-            print(f"board {self.evaluator.eval_board / self.counter}")
-            print(f"eval_dev {self.evaluator.eval_dev / self.counter}")
-            print(f"eval_king {self.evaluator.eval_king / self.counter}")
-            print(f"eval_pd {self.evaluator.eval_pd / self.counter}")
-            print(f"lm {self.evaluator.eval_lm / self.counter}")
-            print(f"cc {self.evaluator.eval_cc / self.counter}")
-            print(f"rf {self.evaluator.eval_rf / self.counter}")
-            print(f"pww {self.evaluator.eval_pww / self.counter}")
+            print(elapsed)
+
         return best_move, best_score
     
 
@@ -397,7 +386,7 @@ class Agent:
             return min_score, best_move, best_line
 
     def test_with_stack_trace(self, board: chess.Board, quiescence: bool = True, depth: int = 3):
-        score, move, line = self.alpha_beta_with_trace(board, 4, float('-inf'), float('inf'), True, quiescence = quiescence)
+        score, move, line = self.alpha_beta_with_trace(board, depth, float('-inf'), float('inf'), True, quiescence = quiescence)
         print(f"Score: {score}")
         print(f"Best Move: {move}")
         print(f"Principal Variation:")
