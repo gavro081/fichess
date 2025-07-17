@@ -23,7 +23,7 @@ cd fichess
 
 ## Testing
 You can test the engine by playing against it in the GUI. If you want to modify the heuristics, or add new ones, 
-you can do that in `Eval.py`. Some unit tests are written in `/tests` to ensure all functions are 
+you can do that in `/engine/Eval.py`. Some unit tests are written in `/tests` to ensure all functions are 
 working properly. 
 
 
