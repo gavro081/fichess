@@ -5,7 +5,7 @@ import chess
 from engine.Eval import Eval
 from enum import Enum
 from collections import namedtuple
-
+from engine.consts import MATE_SCORE
 
 class NodeType(Enum):
     EXACT = 1
@@ -48,6 +48,7 @@ class Agent:
         if board.has_queenside_castling_rights(chess.WHITE): castling_rights |= 1 << 2
         if board.has_kingside_castling_rights(chess.BLACK): castling_rights |= 1 << 1
         if board.has_queenside_castling_rights(chess.BLACK): castling_rights |= 1 << 0
+        h ^= self.zobrist_castling[castling_rights]
 
         if board.ep_square is not None:
             ep_file = chess.square_file(board.ep_square)
@@ -116,7 +117,7 @@ class Agent:
         if move in self.killer_moves.get(depth, []):
             return 800
 
-        # MVV-LVA
+        # MVV-LVA (most valuable victim, least valuable attacker)
         if board.is_capture(move):
             see = self.see_capture(board, move)
             if see > 0:
@@ -149,95 +150,6 @@ class Agent:
                     score += 100
 
         return score
-
-    def alpha_beta(
-            self,
-            board: chess.Board,
-            depth: int,
-            alpha: float,
-            beta: float,
-            maximizing_player: bool,
-            ) -> tuple[float, chess.Move | None]:
-        if depth == 0 or board.is_game_over():
-            return self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None
-            # return self.evaluator.evaluate(board, depth), None
-
-        key = self.zobrist_hash(board)
-        alpha_original = alpha
-
-        if key in self.transposition_table:
-            value, stored_depth, flag, stored_move = self.transposition_table[key]
-            if stored_depth >= depth:
-                if flag == NodeType.EXACT:
-                    return value, stored_move
-                elif flag == NodeType.LOWER_BOUND and value >= beta:
-                    return value, stored_move
-                elif flag == NodeType.UPPER_BOUND and value <= alpha:
-                    return value, stored_move
-
-        best_move = None
-        legal_moves = list(board.legal_moves)
-
-        if key in self.transposition_table:
-            _, _, _, tt_move = self.transposition_table[key]
-            if tt_move in legal_moves:
-                legal_moves.remove(tt_move)
-                legal_moves.insert(0, tt_move)
-
-        sorted_moves = self.score_moves(board, legal_moves, depth, maximizing_player)
-
-        if maximizing_player:
-            max_score = float('-inf')
-            for move in sorted_moves:
-
-                board.push(move)
-                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, False)
-                board.pop()
-
-                if score > max_score:
-                    best_move = move
-                    max_score = score
-                alpha = max(alpha, score)
-                if beta <= alpha:
-                    if depth not in self.killer_moves:
-                        self.killer_moves[depth] = []
-                    if move not in self.killer_moves[depth]:
-                        self.killer_moves[depth].append(move)
-                    break
-            if max_score <= alpha_original:
-                flag = NodeType.UPPER_BOUND
-            elif max_score >= beta:
-                flag = NodeType.LOWER_BOUND
-            else:
-                flag = NodeType.EXACT
-            self.transposition_table[key] = TTEntry(max_score, depth, flag, best_move)
-            return max_score, best_move
-        else:
-            min_eval = float('inf')
-            for move in legal_moves:
-
-                board.push(move)
-                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, True)
-                board.pop()
-
-                if score < min_eval:
-                    best_move = move
-                    min_eval = score
-                beta = min(beta, score)
-                if beta <= alpha:
-                    if depth not in self.killer_moves:
-                        self.killer_moves[depth] = []
-                    if move not in self.killer_moves[depth]:
-                        self.killer_moves[depth].append(move)
-                    break
-            if min_eval <= alpha_original:
-                flag = NodeType.UPPER_BOUND
-            elif min_eval >= beta:
-                flag = NodeType.LOWER_BOUND
-            else:
-                flag = NodeType.EXACT
-            self.transposition_table[key] = TTEntry(min_eval, depth, flag, best_move)
-            return min_eval, best_move
 
     def quiescence_minimax(self, board: chess.Board, main_depth: int, qs_depth: int, alpha: float, beta: float,
                            maximizing_player: bool) -> float:
@@ -303,17 +215,105 @@ class Agent:
                     beta = score
             return beta
 
+    def alpha_beta(
+            self,
+            board: chess.Board,
+            depth: int,
+            alpha: float,
+            beta: float,
+            maximizing_player: bool,
+            ) -> tuple[float, chess.Move | None]:
+        if depth == 0 or board.is_game_over():
+            return self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None
+
+        key = self.zobrist_hash(board)
+        alpha_original = alpha
+
+        if key in self.transposition_table:
+            value, stored_depth, flag, stored_move = self.transposition_table[key]
+            if stored_depth >= depth:
+                if flag == NodeType.EXACT:
+                    return value, stored_move
+                elif flag == NodeType.LOWER_BOUND and value >= beta:
+                    return value, stored_move
+                elif flag == NodeType.UPPER_BOUND and value <= alpha:
+                    return value, stored_move
+
+        best_move = None
+        legal_moves = list(board.legal_moves)
+
+        sorted_moves = self.score_moves(board, legal_moves, depth, maximizing_player)
+
+        if key in self.transposition_table:
+            _, _, _, tt_move = self.transposition_table[key]
+            if tt_move in sorted_moves:
+                sorted_moves.remove(tt_move)
+                sorted_moves.insert(0, tt_move)
+
+        if maximizing_player:
+            max_score = float('-inf')
+            for move in sorted_moves:
+                board.push(move)
+                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, False)
+                board.pop()
+
+                if score > max_score:
+                    best_move = move
+                    max_score = score
+
+                alpha = max(alpha, score)
+                if beta <= alpha:
+                    if depth not in self.killer_moves:
+                        self.killer_moves[depth] = []
+                    if move not in self.killer_moves[depth]:
+                        self.killer_moves[depth].append(move)
+                    break
+            if max_score <= alpha_original:
+                flag = NodeType.UPPER_BOUND
+            elif max_score >= beta:
+                flag = NodeType.LOWER_BOUND
+            else:
+                flag = NodeType.EXACT
+            self.transposition_table[key] = TTEntry(max_score, depth, flag, best_move)
+            return max_score, best_move
+        else:
+            min_eval = float('inf')
+            for move in legal_moves:
+
+                board.push(move)
+                score, _ = self.alpha_beta(board, depth - 1, alpha, beta, True)
+                board.pop()
+
+                if score < min_eval:
+                    best_move = move
+                    min_eval = score
+                beta = min(beta, score)
+                if beta <= alpha:
+                    if depth not in self.killer_moves:
+                        self.killer_moves[depth] = []
+                    if move not in self.killer_moves[depth]:
+                        self.killer_moves[depth].append(move)
+                    break
+            if min_eval <= alpha_original:
+                flag = NodeType.UPPER_BOUND
+            elif min_eval >= beta:
+                flag = NodeType.LOWER_BOUND
+            else:
+                flag = NodeType.EXACT
+            self.transposition_table[key] = TTEntry(min_eval, depth, flag, best_move)
+            return min_eval, best_move
+
     def find_best_move(self, board: chess.Board, max_depth: int = MAX_SEARCH_DEPTH, debug = False) -> tuple[chess.Move | None, float]:
         best_move, best_score = None, 0
+        start = 0
         if debug:
             self.counter = 0
             start = time.perf_counter()
         for depth in range(1, max_depth + 1):
             score, move = self.alpha_beta(board, depth, float('-inf'), float('inf'), True)
             
-            # if abs(score) > MATE_SCORE:
-            #     print("Mate found, stopping early.")
-            #     break
+            if abs(score) > MATE_SCORE:
+                break
             
             if move is not None:
                 best_move = move
@@ -340,6 +340,7 @@ class Agent:
             maximizing_player: bool,
             quiescence: bool = True
            ) -> tuple[float, chess.Move | None, list[chess.Move]]:
+
         if depth == 0 or board.is_game_over():
             if quiescence:
                 return self.quiescence_minimax(board, depth, 0, alpha, beta, maximizing_player), None, []
@@ -355,7 +356,6 @@ class Agent:
         if maximizing_player:
             max_score = float('-inf')
             for move in sorted_moves:
-
                 board.push(move)
                 score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, False, quiescence)
                 board.pop()
@@ -364,6 +364,7 @@ class Agent:
                     max_score = score
                     best_move = move
                     best_line = [move] + line
+
                 alpha = max(alpha, score)
                 if beta <= alpha:
                     break
@@ -371,7 +372,6 @@ class Agent:
         else:
             min_score = float('inf')
             for move in legal_moves:
-
                 board.push(move)
                 score, _, line = self.alpha_beta_with_trace(board, depth - 1, alpha, beta, True, quiescence)
                 board.pop()
@@ -380,6 +380,7 @@ class Agent:
                     min_score = score
                     best_move = move
                     best_line = [move] + line
+
                 beta = min(beta, score)
                 if beta <= alpha:
                     break

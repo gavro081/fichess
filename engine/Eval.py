@@ -23,11 +23,6 @@ class Eval:
     def evaluate_(self, board: chess.Board):
         return 0
 
-    def setup(self, board: chess.Board):
-        self.piece_map = board.piece_map()
-        self.white_pawns = board.pieces(chess.PAWN, chess.WHITE)
-        self.black_pawns = board.pieces(chess.PAWN, chess.BLACK)
-
     def evaluate(self, board: chess.Board, depth: int) -> float:
         side_to_evaluate = self.engine_color
 
@@ -44,9 +39,8 @@ class Eval:
         score = 0
         subclasses = Eval.__subclasses__()
         for sub in subclasses:
-            a = sub(self.engine_color)
-            a.setup(board)
-            score += a.evaluate_(board)
+            eval_ = sub(self.engine_color, board)
+            score += eval_.evaluate_(board)
 
         return score
 
@@ -166,7 +160,6 @@ class EvalPieces(Eval):
         return total_score
 
     def evaluate_progress_when_winning(self, board: chess.Board) -> int:
-
         engine_material = 0
         opponent_material = 0
 

@@ -15,7 +15,6 @@ class TestEval(unittest.TestCase):
 
     def test_eval_board(self):
         board = chess.Board(fen="N2K3N/8/8/4n3/2n5/8/8/3k4 w - - 0 1")
-        self.pieces_eval.setup(board)
         pieces_eval_w = EvalPieces(chess.WHITE, board)
         pieces_eval_b = EvalPieces(chess.BLACK, board)
         black_score = pieces_eval_b.evaluate_board()
