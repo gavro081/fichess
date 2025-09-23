@@ -23,12 +23,12 @@ cd fichess
 
 ## Testing
 You can test the engine by playing against it in the GUI. If you want to modify the heuristics, or add new ones, 
-you can do that in `/engine/Eval.py`. Some unit tests are written in `/tests` to ensure all functions are 
+you can do that in `engine/Eval.py`. Some unit tests are written in `tests/` to ensure all functions are 
 working properly. 
 
 
 ## UCI Support
 Fichess is [UCI](https://www.chessprogramming.org/UCI) compliant, meaning it can communicate with other engines and interfaces using the Universal Chess Interface protocol.
-You can test Fichess against other engines using UCI-compatible tools such as [Cute Chess](https://github.com/cutechess/cutechess), either via CLI or GUI. 
-To run, call the uci.py function and let the tools handle the rest.
+You can test Fichess against other engines using UCI-compatible tools such as [Cute Chess](https://github.com/cutechess/cutechess), either via a CLI or a GUI. 
+To run, call the `uci.py` script and let the tools handle the rest.
 
